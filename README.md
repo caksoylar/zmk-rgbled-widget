@@ -26,6 +26,9 @@ manifest:
     path: config
 ```
 
+If you are building locally, see the instructions for [building with external modules](https://zmk.dev/docs/development/build-flash#building-with-external-modules)
+in ZMK docs.
+
 Then, if you are using one of the boards supported by the [`rgbled_adapter`](/boards/shields/rgbled_adapter) shield such as Xiao BLE,
 just add the `rgbled_adapter` as an additional shield to your build, e.g. in `build.yaml`:
 
