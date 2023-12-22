@@ -12,3 +12,6 @@
 #     shield: reviung41
 #
 ---
+include:
+  - board: seeeduino_xiao_ble
+    shield: hummingbird rgbled_adapter
