@@ -7,10 +7,12 @@
 
 #include <zmk/ble.h>
 #include <zmk/endpoints.h>
+#include <zmk/keymap.h>
 #include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/split/bluetooth/peripheral.h>
 #include <zmk/events/split_peripheral_status_changed.h>
 #include <zmk/events/battery_state_changed.h>
+#include <zmk/events/layer_state_changed.h>
 
 #include <zephyr/logging/log.h>
 
@@ -45,6 +47,7 @@ struct blink_item {
     enum color_t color;
     uint16_t duration_ms;
     bool first_item;
+    uint16_t sleep_ms;
 };
 
 // define message queue of blink work items, that will be processed by a separate thread
@@ -112,6 +115,35 @@ ZMK_LISTENER(led_battery_listener, led_battery_listener_cb);
 ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 #endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 
+#if IS_ENABLED(CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE)
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static int led_layer_listener_cb(const zmk_event_t *eh) {
+    // ignore layer off events
+    if (!((struct zmk_layer_state_changed *)eh)->state) {
+        return 0;
+    }
+
+    uint8_t index = zmk_keymap_highest_layer_active();
+    static const struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS,
+                                            .color = LED_CYAN,
+                                            .sleep_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS};
+    static const struct blink_item last_blink = {.duration_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS,
+                                                 .color = LED_CYAN};
+    for (int i = 0; i < index; i++) {
+        if (i < index - 1) {
+            k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
+        } else {
+            k_msgq_put(&led_msgq, &last_blink, K_NO_WAIT);
+        }
+    }
+    return 0;
+}
+
+ZMK_LISTENER(led_layer_listener, led_layer_listener_cb);
+ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);
+#endif
+#endif // IS_ENABLED(CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE)
+
 extern void led_thread(void *d0, void *d1, void *d2) {
     ARG_UNUSED(d0);
     ARG_UNUSED(d1);
@@ -176,7 +208,11 @@ extern void led_thread(void *d0, void *d1, void *d2) {
         }
 
         // wait interval before processing another blink
-        k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_INTERVAL_MS));
+        if (blink.sleep_ms > 0) {
+            k_sleep(K_MSEC(blink.sleep_ms));
+        } else {
+            k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_INTERVAL_MS));
+        }
     }
 }
 

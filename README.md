@@ -46,10 +46,15 @@ For other keyboards, see the "Adding support" section below.
 See [this video](https://cdn.discordapp.com/attachments/1134635625455292426/1134639930501496832/rgbled_widget.mp4) for a short demo, running through power on, profile switching and power offs.
 
 Currently the widget does the following:
+
 - Blink 🟢/🟡/🔴 on boot depending on battery level (for both central/peripherals), thresholds set by `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH` and `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`
 - Blink 🔴 on every battery level change if below critical battery level (`CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL`)
 - Blink 🔵 for connected, 🟡 for open (advertising), 🔴 for disconnected profiles on every BT profile switch (on central side for splits)
 - Blink 🔵 for connected, 🔴 for disconnected on peripheral side of splits
+
+_Experimental_: Enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE` to show the highest active layer on every layer change
+using a sequence of N cyan color blinks, where N is the zero-based index of the layer.
+Note that this can be noisy and distracting, especially if you use conditional layers.
 
 ## Configuration
 
@@ -64,7 +69,7 @@ CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL=10
 
 ## Adding support in custom boards/shields
 
-To be able to use this widget, you need three LEDs controlled by GPIOs (*not* smart LEDs), ideally red, green and blue colors.
+To be able to use this widget, you need three LEDs controlled by GPIOs (_not_ smart LEDs), ideally red, green and blue colors.
 Once you have these LED definitions in your board/shield, simply set the appropriate `aliases` to the RGB LED node labels.
 
 As an example, here is a definition for three LEDs connected to GND and separate GPIOs for a nRF52840 controller:
