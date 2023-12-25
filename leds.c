@@ -183,15 +183,3 @@ extern void led_thread(void *d0, void *d1, void *d2) {
 // define led_thread with stack size 512, start running it 500 ms after boot
 K_THREAD_DEFINE(led_tid, 512, led_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0,
                 500);
-
-static int leds_init(const struct device *device) {
-    if (!device_is_ready(led_dev)) {
-        LOG_ERR("Device %s is not ready", led_dev->name);
-        return -ENODEV;
-    }
-
-    return 0;
-}
-
-// run leds_init on boot
-SYS_INIT(leds_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
