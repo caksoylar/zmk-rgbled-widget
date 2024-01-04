@@ -3,13 +3,13 @@
 #include <zephyr/drivers/led.h>
 #include <zephyr/kernel.h>
 #include <zephyr/init.h>
-#include <zephyr/bluetooth/services/bas.h>
 
 #include <zmk/ble.h>
 #include <zmk/endpoints.h>
 #include <zmk/keymap.h>
-#include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/split/bluetooth/peripheral.h>
+#include <zmk/battery.h>
+#include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/events/split_peripheral_status_changed.h>
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/events/layer_state_changed.h>
@@ -153,7 +153,7 @@ extern void led_thread(void *d0, void *d1, void *d2) {
     // check and indicate battery level on thread start
     struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS,
                                .first_item = true};
-    uint8_t battery_level = bt_bas_get_battery_level();
+    uint8_t battery_level = zmk_battery_state_of_charge();
 
     if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH) {
         LOG_INF("Battery level %d, blinking green", battery_level);
