@@ -98,7 +98,7 @@ ZMK_SUBSCRIPTION(led_peripheral_listener, zmk_split_peripheral_status_changed);
 #if IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 static int led_battery_listener_cb(const zmk_event_t *eh) {
     // check if we are in critical battery levels at state change, blink if we are
-    uint8_t battery_level = ((struct zmk_battery_state_changed *)eh)->state_of_charge;
+    uint8_t battery_level = as_zmk_battery_state_changed(eh)->state_of_charge;
 
     if (battery_level <= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL) {
         LOG_INF("Battery level %d, blinking red for critical", battery_level);
