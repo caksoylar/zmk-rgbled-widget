@@ -159,38 +159,10 @@ ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);
 #endif
 #endif // IS_ENABLED(CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE)
 
-extern void led_thread(void *d0, void *d1, void *d2) {
+extern void led_process_thread(void *d0, void *d1, void *d2) {
     ARG_UNUSED(d0);
     ARG_UNUSED(d1);
     ARG_UNUSED(d2);
-
-#if IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
-    // check and indicate battery level on thread start
-    struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS,
-                               .first_item = true};
-    uint8_t battery_level = zmk_battery_state_of_charge();
-
-    if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH) {
-        LOG_INF("Battery level %d, blinking green", battery_level);
-        blink.color = LED_GREEN;
-    } else if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW) {
-        LOG_INF("Battery level %d, blinking yellow", battery_level);
-        blink.color = LED_YELLOW;
-    } else {
-        LOG_INF("Battery level %d, blinking red", battery_level);
-        blink.color = LED_RED;
-    }
-
-    k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
-#endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
-
-#if IS_ENABLED(CONFIG_ZMK_BLE)
-    // check and indicate current profile or peripheral connectivity status
-    output_blink();
-#endif // IS_ENABLED(CONFIG_ZMK_BLE)
-
-    initialized = true;
-    LOG_INF("Finished initializing LED thread");
 
     while (true) {
         // wait until a blink item is received and process it
@@ -225,6 +197,54 @@ extern void led_thread(void *d0, void *d1, void *d2) {
     }
 }
 
-// define led_thread with stack size 1024, start running it 500 ms after boot
-K_THREAD_DEFINE(led_tid, 1024, led_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0,
-                500);
+// define led_process_thread with stack size 1024, start running it 100 ms after boot
+K_THREAD_DEFINE(led_process_tid, 1024, led_process_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO,
+                0, 100);
+
+extern void led_init_thread(void *d0, void *d1, void *d2) {
+    ARG_UNUSED(d0);
+    ARG_UNUSED(d1);
+    ARG_UNUSED(d2);
+
+#if IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
+    // check and indicate battery level on thread start
+    LOG_INF("Indicating initial battery status");
+
+    struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS,
+                               .first_item = true};
+    uint8_t battery_level = zmk_battery_state_of_charge();
+    while (battery_level == 0) {
+        k_sleep(K_MSEC(100));
+        battery_level = zmk_battery_state_of_charge();
+    };
+
+    if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH) {
+        LOG_INF("Battery level %d, blinking green", battery_level);
+        blink.color = LED_GREEN;
+    } else if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW) {
+        LOG_INF("Battery level %d, blinking yellow", battery_level);
+        blink.color = LED_YELLOW;
+    } else {
+        LOG_INF("Battery level %d, blinking red", battery_level);
+        blink.color = LED_RED;
+    }
+
+    k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
+
+    // wait until blink should be displayed for further checks
+    k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS + CONFIG_RGBLED_WIDGET_INTERVAL_MS));
+#endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
+
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+    // check and indicate current profile or peripheral connectivity status
+    LOG_INF("Indicating initial connectivity status");
+    output_blink();
+#endif // IS_ENABLED(CONFIG_ZMK_BLE)
+
+    initialized = true;
+    LOG_INF("Finished initializing LED widget");
+}
+
+// run init thread on boot for initial battery+output checks
+K_THREAD_DEFINE(led_init_tid, 1024, led_init_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO,
+                0, 200);
