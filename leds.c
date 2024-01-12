@@ -57,10 +57,11 @@ struct blink_item {
 K_MSGQ_DEFINE(led_msgq, sizeof(struct blink_item), 16, 1);
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-static void profile_blink(void) {
-    uint8_t profile_index = zmk_ble_active_profile_index();
+static void output_blink(void) {
     struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_OUTPUT_BLINK_MS};
+
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    uint8_t profile_index = zmk_ble_active_profile_index();
     if (zmk_ble_active_profile_is_connected()) {
         LOG_INF("Profile %d connected, blinking blue", profile_index);
         blink.color = LED_BLUE;
@@ -71,23 +72,7 @@ static void profile_blink(void) {
         LOG_INF("Profile %d not connected, blinking red", profile_index);
         blink.color = LED_RED;
     }
-    k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
-}
-
-static int led_profile_listener_cb(const zmk_event_t *eh) {
-    if (initialized) {
-        profile_blink();
-    }
-
-    return 0;
-}
-
-// run led_profile_listener_cb on BLE profile change (on central)
-ZMK_LISTENER(led_profile_listener, led_profile_listener_cb);
-ZMK_SUBSCRIPTION(led_profile_listener, zmk_ble_active_profile_changed);
 #else
-static void peripheral_blink(void) {
-    struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_OUTPUT_BLINK_MS};
     if (zmk_split_bt_peripheral_is_connected()) {
         LOG_INF("Peripheral connected, blinking blue");
         blink.color = LED_BLUE;
@@ -95,20 +80,25 @@ static void peripheral_blink(void) {
         LOG_INF("Peripheral not connected, blinking red");
         blink.color = LED_RED;
     }
+#endif
+
     k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
 }
 
-static int led_peripheral_listener_cb(const zmk_event_t *eh) {
+static int led_output_listener_cb(const zmk_event_t *eh) {
     if (initialized) {
-        peripheral_blink();
+        output_blink();
     }
-
     return 0;
 }
 
-// run led_peripheral_listener_cb on peripheral status change event
-ZMK_LISTENER(led_peripheral_listener, led_peripheral_listener_cb);
-ZMK_SUBSCRIPTION(led_peripheral_listener, zmk_split_peripheral_status_changed);
+ZMK_LISTENER(led_output_listener, led_output_listener_cb);
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+// run led_output_listener_cb on BLE profile change (on central)
+ZMK_SUBSCRIPTION(led_output_listener, zmk_ble_active_profile_changed);
+#else
+// run led_output_listener_cb on peripheral status change event
+ZMK_SUBSCRIPTION(led_output_listener, zmk_split_peripheral_status_changed);
 #endif
 #endif // IS_ENABLED(CONFIG_ZMK_BLE)
 
@@ -196,11 +186,7 @@ extern void led_thread(void *d0, void *d1, void *d2) {
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
     // check and indicate current profile or peripheral connectivity status
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    profile_blink();
-#else
-    peripheral_blink();
-#endif
+    output_blink();
 #endif // IS_ENABLED(CONFIG_ZMK_BLE)
 
     initialized = true;
