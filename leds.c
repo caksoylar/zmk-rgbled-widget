@@ -51,7 +51,7 @@ struct blink_item {
 };
 
 // define message queue of blink work items, that will be processed by a separate thread
-K_MSGQ_DEFINE(led_msgq, sizeof(struct blink_item), 16, 4);
+K_MSGQ_DEFINE(led_msgq, sizeof(struct blink_item), 16, 1);
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
@@ -217,5 +217,5 @@ extern void led_thread(void *d0, void *d1, void *d2) {
 }
 
 // define led_thread with stack size 512, start running it 500 ms after boot
-K_THREAD_DEFINE(led_tid, 512, led_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0,
+K_THREAD_DEFINE(led_tid, 1024, led_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0,
                 500);
