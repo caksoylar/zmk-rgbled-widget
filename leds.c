@@ -30,6 +30,9 @@ static const uint8_t rgb_idx[] = {DT_NODE_CHILD_IDX(DT_ALIAS(led_red)),
                                   DT_NODE_CHILD_IDX(DT_ALIAS(led_green)),
                                   DT_NODE_CHILD_IDX(DT_ALIAS(led_blue))};
 
+// flag to indicate whether the initial boot up sequence is complete
+static bool initialized = false;
+
 // color values as specified by an RGB bitfield
 enum color_t {
     LED_BLACK,   // 0b000
@@ -55,7 +58,7 @@ K_MSGQ_DEFINE(led_msgq, sizeof(struct blink_item), 16, 1);
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-static int led_profile_listener_cb(const zmk_event_t *eh) {
+static void profile_blink(void) {
     uint8_t profile_index = zmk_ble_active_profile_index();
     struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_OUTPUT_BLINK_MS};
     if (zmk_ble_active_profile_is_connected()) {
@@ -69,6 +72,13 @@ static int led_profile_listener_cb(const zmk_event_t *eh) {
         blink.color = LED_RED;
     }
     k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
+}
+
+static int led_profile_listener_cb(const zmk_event_t *eh) {
+    if (initialized) {
+        profile_blink();
+    }
+
     return 0;
 }
 
@@ -76,7 +86,7 @@ static int led_profile_listener_cb(const zmk_event_t *eh) {
 ZMK_LISTENER(led_profile_listener, led_profile_listener_cb);
 ZMK_SUBSCRIPTION(led_profile_listener, zmk_ble_active_profile_changed);
 #else
-static int led_peripheral_listener_cb(const zmk_event_t *eh) {
+static void peripheral_blink(void) {
     struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_OUTPUT_BLINK_MS};
     if (zmk_split_bt_peripheral_is_connected()) {
         LOG_INF("Peripheral connected, blinking blue");
@@ -86,6 +96,13 @@ static int led_peripheral_listener_cb(const zmk_event_t *eh) {
         blink.color = LED_RED;
     }
     k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
+}
+
+static int led_peripheral_listener_cb(const zmk_event_t *eh) {
+    if (initialized) {
+        peripheral_blink();
+    }
+
     return 0;
 }
 
@@ -97,6 +114,10 @@ ZMK_SUBSCRIPTION(led_peripheral_listener, zmk_split_peripheral_status_changed);
 
 #if IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 static int led_battery_listener_cb(const zmk_event_t *eh) {
+    if (!initialized) {
+        return 0;
+    }
+
     // check if we are in critical battery levels at state change, blink if we are
     uint8_t battery_level = as_zmk_battery_state_changed(eh)->state_of_charge;
 
@@ -118,6 +139,10 @@ ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 #if IS_ENABLED(CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE)
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 static int led_layer_listener_cb(const zmk_event_t *eh) {
+    if (!initialized) {
+        return 0;
+    }
+
     // ignore layer off events
     if (!((struct zmk_layer_state_changed *)eh)->state) {
         return 0;
@@ -167,21 +192,19 @@ extern void led_thread(void *d0, void *d1, void *d2) {
     }
 
     k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
-
-    // reorder message queue so the first item is always the battery level
-    struct blink_item cur_item;
-    int err;
-    for (uint8_t item_no = 0; item_no < 16; item_no++) {
-        err = k_msgq_peek(&led_msgq, &cur_item);
-        if (err < 0 || cur_item.first_item) {
-            break;
-        }
-        LOG_DBG("Pushing blink item with color %d, duration %d to the end", cur_item.color,
-                cur_item.duration_ms);
-        k_msgq_get(&led_msgq, &cur_item, K_NO_WAIT);
-        k_msgq_put(&led_msgq, &cur_item, K_NO_WAIT);
-    }
 #endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
+
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+    // check and indicate current profile or peripheral connectivity status
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    profile_blink();
+#else
+    peripheral_blink();
+#endif
+#endif // IS_ENABLED(CONFIG_ZMK_BLE)
+
+    initialized = true;
+    LOG_INF("Finished initializing LED thread");
 
     while (true) {
         // wait until a blink item is received and process it
@@ -216,6 +239,6 @@ extern void led_thread(void *d0, void *d1, void *d2) {
     }
 }
 
-// define led_thread with stack size 512, start running it 500 ms after boot
+// define led_thread with stack size 1024, start running it 500 ms after boot
 K_THREAD_DEFINE(led_tid, 1024, led_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0,
                 500);
