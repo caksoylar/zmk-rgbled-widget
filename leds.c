@@ -134,7 +134,7 @@ static int led_layer_listener_cb(const zmk_event_t *eh) {
     }
 
     // ignore layer off events
-    if (!((struct zmk_layer_state_changed *)eh)->state) {
+    if (!as_zmk_layer_state_changed(eh)->state) {
         return 0;
     }
 
