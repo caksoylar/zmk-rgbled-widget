@@ -43,8 +43,12 @@ For other keyboards, see the "Adding support" section below.
 
 ## Features
 
-See [this video](https://github.com/caksoylar/zmk-rgbled-widget/assets/7876996/cfd89dd1-ff24-4a33-8563-2fdad2a828d4) for a short demo, running through power on, profile switching and power offs.
-
+<details>
+  <summary>Short video demo</summary>
+  See below video for a short demo, running through power on, profile switching and power offs.
+  
+  https://github.com/caksoylar/zmk-rgbled-widget/assets/7876996/cfd89dd1-ff24-4a33-8563-2fdad2a828d4
+</details>
 
 Currently the widget does the following:
 
