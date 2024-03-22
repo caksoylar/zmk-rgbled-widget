@@ -111,7 +111,7 @@ static int led_battery_listener_cb(const zmk_event_t *eh) {
     // check if we are in critical battery levels at state change, blink if we are
     uint8_t battery_level = as_zmk_battery_state_changed(eh)->state_of_charge;
 
-    if (battery_level <= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL) {
+    if (battery_level > 0 && battery_level <= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL) {
         LOG_INF("Battery level %d, blinking red for critical", battery_level);
 
         struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS,
@@ -213,12 +213,16 @@ extern void led_init_thread(void *d0, void *d1, void *d2) {
     struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS,
                                .first_item = true};
     uint8_t battery_level = zmk_battery_state_of_charge();
-    while (battery_level == 0) {
+    int retry = 0;
+    while (battery_level == 0 && retry++ < 10) {
         k_sleep(K_MSEC(100));
         battery_level = zmk_battery_state_of_charge();
     };
 
-    if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH) {
+    if (battery_level == 0) {
+        LOG_INF("Battery level undetermined (zero), blinking magenta");
+        blink.color = LED_MAGENTA;
+    } else if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH) {
         LOG_INF("Battery level %d, blinking green", battery_level);
         blink.color = LED_GREEN;
     } else if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW) {
