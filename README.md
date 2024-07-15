@@ -77,7 +77,7 @@ CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL=10
 To be able to use this widget, you need three LEDs controlled by GPIOs (_not_ smart LEDs), ideally red, green and blue colors.
 Once you have these LED definitions in your board/shield, simply set the appropriate `aliases` to the RGB LED node labels.
 
-As an example, here is a definition for three LEDs connected to GND and separate GPIOs for a nRF52840 controller:
+As an example, here is a definition for three LEDs connected to VCC and separate GPIOs for a nRF52840 controller:
 
 ```dts
 / {
@@ -102,6 +102,8 @@ As an example, here is a definition for three LEDs connected to GND and separate
     };
 };
 ```
+
+(If the LEDs are wired between GPIO and GND instead, use `GPIO_ACTIVE_HIGH` flag.)
 
 Finally, turn on the widget in the configuration:
 
