@@ -1,18 +1,18 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/led.h>
-#include <zephyr/kernel.h>
 #include <zephyr/init.h>
+#include <zephyr/kernel.h>
 
+#include <zmk/battery.h>
 #include <zmk/ble.h>
 #include <zmk/endpoints.h>
+#include <zmk/events/battery_state_changed.h>
+#include <zmk/events/ble_active_profile_changed.h>
+#include <zmk/events/layer_state_changed.h>
+#include <zmk/events/split_peripheral_status_changed.h>
 #include <zmk/keymap.h>
 #include <zmk/split/bluetooth/peripheral.h>
-#include <zmk/battery.h>
-#include <zmk/events/ble_active_profile_changed.h>
-#include <zmk/events/split_peripheral_status_changed.h>
-#include <zmk/events/battery_state_changed.h>
-#include <zmk/events/layer_state_changed.h>
 
 #include <zephyr/logging/log.h>
 
@@ -20,9 +20,12 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #define LED_GPIO_NODE_ID DT_COMPAT_GET_ANY_STATUS_OKAY(gpio_leds)
 
-BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_red)), "An alias for a red LED is not found for RGBLED_WIDGET");
-BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_green)), "An alias for a green LED is not found for RGBLED_WIDGET");
-BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_blue)), "An alias for a blue LED is not found for RGBLED_WIDGET");
+BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_red)),
+             "An alias for a red LED is not found for RGBLED_WIDGET");
+BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_green)),
+             "An alias for a green LED is not found for RGBLED_WIDGET");
+BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_blue)),
+             "An alias for a blue LED is not found for RGBLED_WIDGET");
 
 // GPIO-based LED device and indices of red/green/blue LEDs inside its DT node
 static const struct device *led_dev = DEVICE_DT_GET(LED_GPIO_NODE_ID);
@@ -53,7 +56,8 @@ struct blink_item {
     uint16_t sleep_ms;
 };
 
-// define message queue of blink work items, that will be processed by a separate thread
+// define message queue of blink work items, that will be processed by a
+// separate thread
 K_MSGQ_DEFINE(led_msgq, sizeof(struct blink_item), 16, 1);
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
@@ -197,9 +201,10 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
     }
 }
 
-// define led_process_thread with stack size 1024, start running it 100 ms after boot
-K_THREAD_DEFINE(led_process_tid, 1024, led_process_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO,
-                0, 100);
+// define led_process_thread with stack size 1024, start running it 100 ms after
+// boot
+K_THREAD_DEFINE(led_process_tid, 1024, led_process_thread, NULL, NULL, NULL,
+                K_LOWEST_APPLICATION_THREAD_PRIO, 0, 100);
 
 extern void led_init_thread(void *d0, void *d1, void *d2) {
     ARG_UNUSED(d0);
@@ -250,5 +255,5 @@ extern void led_init_thread(void *d0, void *d1, void *d2) {
 }
 
 // run init thread on boot for initial battery+output checks
-K_THREAD_DEFINE(led_init_tid, 1024, led_init_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO,
-                0, 200);
+K_THREAD_DEFINE(led_init_tid, 1024, led_init_thread, NULL, NULL, NULL,
+                K_LOWEST_APPLICATION_THREAD_PRIO, 0, 200);
