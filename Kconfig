@@ -33,8 +33,16 @@ config RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL
 config RGBLED_WIDGET_SHOW_LAYER_CHANGE
     bool "Indicate highest active layer on each layer change with a sequence of blinks"
 
+if RGBLED_WIDGET_SHOW_LAYER_CHANGE
+
 config RGBLED_WIDGET_LAYER_BLINK_MS
     int "Blink and wait duration for layer indicator"
     default 100
+
+config RGBLED_WIDGET_LAYER_DEBOUNCE_MS
+    int "Wait duration after a layer change before showing the highest active layer"
+    default 100
+
+endif # RGBLED_WIDGET_SHOW_LAYER_CHANGE
 
 endif

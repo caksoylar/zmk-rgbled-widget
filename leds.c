@@ -20,6 +20,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #define LED_GPIO_NODE_ID DT_COMPAT_GET_ANY_STATUS_OKAY(gpio_leds)
 
+#define SHOW_LAYER_CHANGE                                                                          \
+    (IS_ENABLED(CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE)) &&                                        \
+        (!IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL))
+
 BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_red)),
              "An alias for a red LED is not found for RGBLED_WIDGET");
 BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_green)),
@@ -130,18 +134,18 @@ ZMK_LISTENER(led_battery_listener, led_battery_listener_cb);
 ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 #endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 
-#if IS_ENABLED(CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE)
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+#if SHOW_LAYER_CHANGE
+static struct k_work_delayable layer_indicate_work;
+
 static int led_layer_listener_cb(const zmk_event_t *eh) {
-    if (!initialized) {
-        return 0;
+    // ignore if not initialized yet or layer off events
+    if (initialized && as_zmk_layer_state_changed(eh)->state) {
+        k_work_reschedule(&layer_indicate_work, K_MSEC(CONFIG_RGBLED_WIDGET_LAYER_DEBOUNCE_MS));
     }
+    return 0;
+}
 
-    // ignore layer off events
-    if (!as_zmk_layer_state_changed(eh)->state) {
-        return 0;
-    }
-
+static void indicate_layer(struct k_work *work) {
     uint8_t index = zmk_keymap_highest_layer_active();
     static const struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS,
                                             .color = LED_CYAN,
@@ -155,18 +159,20 @@ static int led_layer_listener_cb(const zmk_event_t *eh) {
             k_msgq_put(&led_msgq, &last_blink, K_NO_WAIT);
         }
     }
-    return 0;
 }
 
 ZMK_LISTENER(led_layer_listener, led_layer_listener_cb);
 ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);
-#endif
-#endif // IS_ENABLED(CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE)
+#endif // SHOW_LAYER_CHANGE
 
 extern void led_process_thread(void *d0, void *d1, void *d2) {
     ARG_UNUSED(d0);
     ARG_UNUSED(d1);
     ARG_UNUSED(d2);
+
+#if SHOW_LAYER_CHANGE
+    k_work_init_delayable(&layer_indicate_work, indicate_layer);
+#endif
 
     while (true) {
         // wait until a blink item is received and process it
