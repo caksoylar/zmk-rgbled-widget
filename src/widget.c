@@ -35,6 +35,26 @@ static const uint8_t rgb_idx[] = {DT_NODE_CHILD_IDX(DT_ALIAS(led_red)),
                                   DT_NODE_CHILD_IDX(DT_ALIAS(led_green)),
                                   DT_NODE_CHILD_IDX(DT_ALIAS(led_blue))};
 
+// color values as specified by an RGB bitfield
+enum led_color_t {
+    LED_BLACK,   // 0b000
+    LED_RED,     // 0b001
+    LED_GREEN,   // 0b010
+    LED_YELLOW,  // 0b011
+    LED_BLUE,    // 0b100
+    LED_MAGENTA, // 0b101
+    LED_CYAN,    // 0b110
+    LED_WHITE    // 0b111
+};
+
+// a blink work item as specified by the color and duration
+struct blink_item {
+    enum led_color_t color;
+    uint16_t duration_ms;
+    bool first_item;
+    uint16_t sleep_ms;
+};
+
 // flag to indicate whether the initial boot up sequence is complete
 static bool initialized = false;
 
