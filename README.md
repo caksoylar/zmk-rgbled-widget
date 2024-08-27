@@ -1,6 +1,6 @@
 # LED indicators using an RGB LED
 
-This is a ZMK module containing a simple widget that utilizes a (typically built-in) RGB LED controlled by three separate GPIOs.
+This is a [ZMK module](https://zmk.dev/docs/features/modules) containing a simple widget that utilizes a (typically built-in) RGB LED controlled by three separate GPIOs.
 It is used to indicate battery level and BLE connection status in a minimalist way.
 
 ## Usage
@@ -12,22 +12,21 @@ manifest:
   remotes:
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
-    - name: caksoylar
+    - name: caksoylar  # <-- new entry
       url-base: https://github.com/caksoylar
   projects:
     - name: zmk
       remote: zmkfirmware
       revision: main
       import: app/west.yml
-    - name: zmk-rgbled-widget
+    - name: zmk-rgbled-widget  # <-- new entry
       remote: caksoylar
       revision: main
   self:
     path: config
 ```
 
-If you are building locally, see the instructions for [building with external modules](https://zmk.dev/docs/development/build-flash#building-with-external-modules)
-in ZMK docs.
+For more information, including instructions for building locally, check out the ZMK docs on [building with modules](https://zmk.dev/docs/features/modules#building-with-modules).
 
 Then, if you are using one of the boards supported by the [`rgbled_adapter`](/boards/shields/rgbled_adapter) shield such as Xiao BLE,
 just add the `rgbled_adapter` as an additional shield to your build, e.g. in `build.yaml`:
