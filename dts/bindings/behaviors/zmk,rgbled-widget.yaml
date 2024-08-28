@@ -1,0 +1,13 @@
+description: RGB LED widget indicator behavior
+
+compatible: "zmk,behavior-rgbled-widget"
+
+include: zero_param.yaml
+
+properties:
+  indicate-battery:
+    type: boolean
+  indicate-connectivity:
+    type: boolean
+  indicate-layer:
+    type: boolean

@@ -159,21 +159,7 @@ ZMK_LISTENER(led_battery_listener, led_battery_listener_cb);
 ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 #endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 
-#if SHOW_LAYER_CHANGE
-static struct k_work_delayable layer_indicate_work;
-
-static int led_layer_listener_cb(const zmk_event_t *eh) {
-    // ignore if not initialized yet or layer off events
-    if (initialized && as_zmk_layer_state_changed(eh)->state) {
-        k_work_reschedule(&layer_indicate_work, K_MSEC(CONFIG_RGBLED_WIDGET_LAYER_DEBOUNCE_MS));
-    }
-    return 0;
-}
-
-static void indicate_layer_cb(struct k_work *work) {
-    indicate_layer();
-}
-
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 void indicate_layer(void) {
     uint8_t index = zmk_keymap_highest_layer_active();
     static const struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS,
@@ -189,6 +175,20 @@ void indicate_layer(void) {
         }
     }
 }
+#endif
+
+#if SHOW_LAYER_CHANGE
+static struct k_work_delayable layer_indicate_work;
+
+static int led_layer_listener_cb(const zmk_event_t *eh) {
+    // ignore if not initialized yet or layer off events
+    if (initialized && as_zmk_layer_state_changed(eh)->state) {
+        k_work_reschedule(&layer_indicate_work, K_MSEC(CONFIG_RGBLED_WIDGET_LAYER_DEBOUNCE_MS));
+    }
+    return 0;
+}
+
+static void indicate_layer_cb(struct k_work *work) { indicate_layer(); }
 
 ZMK_LISTENER(led_layer_listener, led_layer_listener_cb);
 ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);

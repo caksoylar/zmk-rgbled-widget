@@ -59,6 +59,31 @@ Currently the widget does the following:
 In addition, you can enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE` to show the highest active layer on every layer activation
 using a sequence of N cyan color blinks, where N is the zero-based index of the layer.
 
+### Showing status on demand
+
+This module also defines keymap [behaviors](https://zmk.dev/docs/keymaps/behaviors) to let you show battery or connection status on demand:
+
+```dts
+#include <behaviors/rgbled_widget.dtsi>  // needed to use the behaviors
+
+/ {
+    keymap {
+        ...
+        some_layer {
+            bindings = <
+                ...
+                &ind_bat  // indicate battery level
+                &ind_con  // indicate connectivity status
+                ...
+            >;
+        };
+    };
+};
+```
+
+When you invoke the behavior by pressing the corresponding key (or combo), it will trigger the LED color display.
+This will happen on all keyboard parts for split keyboards, so make sure to flash firmware to all parts after enabling.
+
 ## Configuration
 
 Blink durations can also be adjusted, see the [Kconfig file](Kconfig) for available config properties.
