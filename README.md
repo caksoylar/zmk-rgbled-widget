@@ -84,6 +84,10 @@ This module also defines keymap [behaviors](https://zmk.dev/docs/keymaps/behavio
 When you invoke the behavior by pressing the corresponding key (or combo), it will trigger the LED color display.
 This will happen on all keyboard parts for split keyboards, so make sure to flash firmware to all parts after enabling.
 
+> [!NOTE]
+> The behaviors can be used even when you use split keyboards with different controllers that don't all support the widget.
+> Make sure that you use the `rgbled_adapter` shield (or enable `CONFIG_RGBLED_WIDGET`) only for the keyboard parts that support it.
+
 ## Configuration
 
 Blink durations can also be adjusted, see the [Kconfig file](Kconfig) for available config properties.

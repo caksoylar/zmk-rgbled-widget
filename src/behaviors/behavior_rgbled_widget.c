@@ -20,6 +20,7 @@ static int behavior_rgb_wdg_init(const struct device *dev) { return 0; }
 
 static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
                                      struct zmk_behavior_binding_event event) {
+#if IS_ENABLED(CONFIG_RGBLED_WIDGET)
     const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
     const struct behavior_rgb_wdg_config *cfg = dev->config;
 
@@ -38,6 +39,7 @@ static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
         indicate_layer();
     }
 #endif
+#endif // IS_ENABLED(CONFIG_RGBLED_WIDGET)
 
     return ZMK_BEHAVIOR_OPAQUE;
 }

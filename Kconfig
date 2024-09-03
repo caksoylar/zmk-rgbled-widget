@@ -45,10 +45,10 @@ config RGBLED_WIDGET_LAYER_DEBOUNCE_MS
 
 endif # RGBLED_WIDGET_SHOW_LAYER_CHANGE
 
+endif # RGBLED_WIDGET
+
 DT_COMPAT_ZMK_BEHAVIOR_RGBLED_WIDGET := zmk,behavior-rgbled-widget
 
 config ZMK_BEHAVIOR_RGBLED_WIDGET
     bool
     default $(dt_compat_enabled,$(DT_COMPAT_ZMK_BEHAVIOR_RGBLED_WIDGET))
-
-endif
