@@ -35,21 +35,23 @@ static const uint8_t rgb_idx[] = {DT_NODE_CHILD_IDX(DT_ALIAS(led_red)),
                                   DT_NODE_CHILD_IDX(DT_ALIAS(led_green)),
                                   DT_NODE_CHILD_IDX(DT_ALIAS(led_blue))};
 
-// color values as specified by an RGB bitfield
-enum led_color_t {
-    LED_BLACK,   // 0b000
-    LED_RED,     // 0b001
-    LED_GREEN,   // 0b010
-    LED_YELLOW,  // 0b011
-    LED_BLUE,    // 0b100
-    LED_MAGENTA, // 0b101
-    LED_CYAN,    // 0b110
-    LED_WHITE    // 0b111
-};
+// map from color values to names, for logging
+static const char *color_names[] = {"black", "red",     "green", "yellow",
+                                    "blue",  "magenta", "cyan",  "white"};
+// log shorthands
+#define LOG_CONN_CENTRAL(index, status, color_label)                                               \
+    LOG_INF("Profile %d %s, blinking %s", index, status,                                           \
+            color_names[CONFIG_RGBLED_WIDGET_CONN_COLOR_##color_label])
+#define LOG_CONN_PERIPHERAL(status, color_label)                                                   \
+    LOG_INF("Peripheral %s, blinking %s", status,                                                  \
+            color_names[CONFIG_RGBLED_WIDGET_CONN_COLOR_##color_label])
+#define LOG_BATTERY(battery_level, color_label)                                                    \
+    LOG_INF("Battery level %d, blinking %s", battery_level,                                        \
+            color_names[CONFIG_RGBLED_WIDGET_BATTERY_COLOR_##color_label])
 
 // a blink work item as specified by the color and duration
 struct blink_item {
-    enum led_color_t color;
+    uint8_t color;
     uint16_t duration_ms;
     bool first_item;
     uint16_t sleep_ms;
@@ -69,22 +71,22 @@ void indicate_connectivity(void) {
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     uint8_t profile_index = zmk_ble_active_profile_index();
     if (zmk_ble_active_profile_is_connected()) {
-        LOG_INF("Profile %d connected, blinking blue", profile_index);
-        blink.color = LED_BLUE;
+        LOG_CONN_CENTRAL(profile_index, "connected", CONNECTED);
+        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED;
     } else if (zmk_ble_active_profile_is_open()) {
-        LOG_INF("Profile %d open, blinking yellow", profile_index);
-        blink.color = LED_YELLOW;
+        LOG_CONN_CENTRAL(profile_index, "open", ADVERTISING);
+        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING;
     } else {
-        LOG_INF("Profile %d not connected, blinking red", profile_index);
-        blink.color = LED_RED;
+        LOG_CONN_CENTRAL(profile_index, "not connected", DISCONNECTED);
+        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED;
     }
 #else
     if (zmk_split_bt_peripheral_is_connected()) {
-        LOG_INF("Peripheral connected, blinking blue");
-        blink.color = LED_BLUE;
+        LOG_CONN_PERIPHERAL("connected", CONNECTED);
+        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED;
     } else {
-        LOG_INF("Peripheral not connected, blinking red");
-        blink.color = LED_RED;
+        LOG_CONN_PERIPHERAL("not connected", DISCONNECTED);
+        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED;
     }
 #endif
 
@@ -121,16 +123,16 @@ void indicate_battery(void) {
 
     if (battery_level == 0) {
         LOG_INF("Battery level undetermined (zero), blinking magenta");
-        blink.color = LED_MAGENTA;
+        blink.color = 5;
     } else if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH) {
-        LOG_INF("Battery level %d, blinking green", battery_level);
-        blink.color = LED_GREEN;
+        LOG_BATTERY(battery_level, HIGH);
+        blink.color = CONFIG_RGBLED_WIDGET_BATTERY_COLOR_HIGH;
     } else if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW) {
-        LOG_INF("Battery level %d, blinking yellow", battery_level);
-        blink.color = LED_YELLOW;
+        LOG_BATTERY(battery_level, MEDIUM);
+        blink.color = CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MEDIUM;
     } else {
-        LOG_INF("Battery level %d, blinking red", battery_level);
-        blink.color = LED_RED;
+        LOG_BATTERY(battery_level, LOW);
+        blink.color = CONFIG_RGBLED_WIDGET_BATTERY_COLOR_LOW;
     }
 
     k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
@@ -145,10 +147,10 @@ static int led_battery_listener_cb(const zmk_event_t *eh) {
     uint8_t battery_level = as_zmk_battery_state_changed(eh)->state_of_charge;
 
     if (battery_level > 0 && battery_level <= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL) {
-        LOG_INF("Battery level %d, blinking red for critical", battery_level);
+        LOG_BATTERY(battery_level, CRITICAL);
 
         struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS,
-                                   .color = LED_RED};
+                                   .color = CONFIG_RGBLED_WIDGET_BATTERY_COLOR_CRITICAL};
         k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
     }
     return 0;
@@ -163,10 +165,13 @@ ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 void indicate_layer(void) {
     uint8_t index = zmk_keymap_highest_layer_active();
     static const struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS,
-                                            .color = LED_CYAN,
+                                            .color = CONFIG_RGBLED_WIDGET_LAYER_COLOR,
                                             .sleep_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS};
     static const struct blink_item last_blink = {.duration_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS,
-                                                 .color = LED_CYAN};
+                                                 .color = CONFIG_RGBLED_WIDGET_LAYER_COLOR};
+    LOG_INF("Blinking %d times %s for layer change", index,
+            color_names[CONFIG_RGBLED_WIDGET_LAYER_COLOR]);
+
     for (int i = 0; i < index; i++) {
         if (i < index - 1) {
             k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
