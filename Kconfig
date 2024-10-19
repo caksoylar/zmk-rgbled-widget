@@ -1,3 +1,13 @@
+# Color definitions to use with color settings
+COLOR_BLACK   := 0  # no blink
+COLOR_RED     := 1
+COLOR_GREEN   := 2
+COLOR_YELLOW  := 3
+COLOR_BLUE    := 4
+COLOR_MAGENTA := 5
+COLOR_CYAN    := 6
+COLOR_WHITE   := 7
+
 config RGBLED_WIDGET
     bool "Enable RGB LED widget for showing battery and output status"
 
@@ -6,17 +16,15 @@ if RGBLED_WIDGET
 config LED
     default y
 
-config RGBLED_WIDGET_BATTERY_BLINK_MS
-    int "Duration of battery level blink in ms"
-    default 2000
-
-config RGBLED_WIDGET_OUTPUT_BLINK_MS
-    int "Duration of BLE connection status blink in ms"
-    default 1000
-
 config RGBLED_WIDGET_INTERVAL_MS
     int "Minimum wait duration between two blinks in ms"
     default 500
+
+# Battery level settings
+
+config RGBLED_WIDGET_BATTERY_BLINK_MS
+    int "Duration of battery level blink in ms"
+    default 2000
 
 config RGBLED_WIDGET_BATTERY_LEVEL_HIGH
     int "High battery level percentage"
@@ -30,6 +38,51 @@ config RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL
     int "Critical battery level percentage"
     default 5
 
+config RGBLED_WIDGET_BATTERY_COLOR_HIGH
+    int "Color for high battery level (above LEVEL_HIGH)"
+    range 0 7
+    default $(COLOR_GREEN)
+
+config RGBLED_WIDGET_BATTERY_COLOR_MEDIUM
+    int "Color for medium battery level (between LEVEL_LOW and LEVEL_HIGH)"
+    range 0 7
+    default $(COLOR_YELLOW)
+
+config RGBLED_WIDGET_BATTERY_COLOR_LOW
+    int "Color for low battery level (below LEVEL_LOW)"
+    range 0 7
+    default $(COLOR_RED)
+
+config RGBLED_WIDGET_BATTERY_COLOR_CRITICAL
+    int "Color for critical battery level (below LEVEL_CRITICAL)"
+    range 0 7
+    default $(COLOR_RED)
+
+# Connectivity indicator settings
+config RGBLED_WIDGET_CONN_BLINK_MS
+    int "Duration of BLE connection status blink in ms"
+    default RGBLED_WIDGET_OUTPUT_BLINK_MS
+
+config RGBLED_WIDGET_OUTPUT_BLINK_MS  # DEPRECATED, do not use
+    int
+    default 1000
+
+config RGBLED_WIDGET_CONN_COLOR_CONNECTED
+    int "Color for connected BLE connection status"
+    range 0 7
+    default $(COLOR_BLUE)
+
+config RGBLED_WIDGET_CONN_COLOR_ADVERTISING
+    int "Color for advertising BLE connection status"
+    range 0 7
+    default $(COLOR_YELLOW)
+
+config RGBLED_WIDGET_CONN_COLOR_DISCONNECTED
+    int "Color for disconnected BLE connection status"
+    range 0 7
+    default $(COLOR_RED)
+
+# Layer indicator settings
 config RGBLED_WIDGET_SHOW_LAYER_CHANGE
     bool "Indicate highest active layer on each layer change with a sequence of blinks"
 
@@ -37,13 +90,14 @@ config RGBLED_WIDGET_LAYER_BLINK_MS
     int "Blink and wait duration for layer indicator"
     default 100
 
-if RGBLED_WIDGET_SHOW_LAYER_CHANGE
+config RGBLED_WIDGET_LAYER_COLOR
+    int "Color to use for layer indicator"
+    range 0 7
+    default $(COLOR_CYAN)
 
 config RGBLED_WIDGET_LAYER_DEBOUNCE_MS
     int "Wait duration after a layer change before showing the highest active layer"
     default 100
-
-endif # RGBLED_WIDGET_SHOW_LAYER_CHANGE
 
 endif # RGBLED_WIDGET
 
