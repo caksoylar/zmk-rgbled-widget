@@ -92,7 +92,44 @@ This will happen on all keyboard parts for split keyboards, so make sure to flas
 
 ## Configuration
 
-Blink durations can also be adjusted, see the [Kconfig file](Kconfig) for available config properties.
+<details>
+<summary>Expand to see available configuration options</summary>
+
+| Name                                           | Description                                                                  | Default      |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- | ------------ |
+| `CONFIG_RGBLED_WIDGET_INTERVAL_MS`             | Minimum wait duration between two blinks in ms                               | 500          |
+| `CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS`        | Duration of battery level blink in ms                                        | 2000         |
+| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH`      | High battery level percentage                                                | 80           |
+| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`       | Low battery level percentage                                                 | 20           |
+| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL`  | Critical battery level percentage, blink periodically if under               | 5            |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_HIGH`      | Color for high battery level (above `LEVEL_HIGH`)                            | Green (`2`)  |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MEDIUM`    | Color for medium battery level (between `LEVEL_LOW` and `LEVEL_HIGH`)        | Yellow (`3`) |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_LOW`       | Color for low battery level (below `LEVEL_LOW`)                              | Red (`1`)    |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_CRITICAL`  | Color for critical battery level (below `LEVEL_CRITICAL`)                    | Red (`1`)    |
+| `CONFIG_RGBLED_WIDGET_CONN_BLINK_MS`           | Duration of BLE connection status blink in ms                                | 1000         |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED`    | Color for connected BLE connection status                                    | Blue (`4`)   |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING`  | Color for advertising BLE connection status                                  | Yellow (`3`) |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED` | Color for disconnected BLE connection status                                 | Red (`1`)    |
+| `CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE`       | Indicate highest active layer on each layer change with a sequence of blinks | `n`          |
+| `CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS`          | Blink and wait duration for layer indicator                                  | 100          |
+| `CONFIG_RGBLED_WIDGET_LAYER_COLOR`             | Color to use for layer indicator                                             | Cyan (`6`)   |
+| `CONFIG_RGBLED_WIDGET_LAYER_DEBOUNCE_MS`       | Wait duration after a layer change before showing the highest active layer   | 100          |
+
+Color settings use the following integer values:
+
+| Color        | Value |
+| ------------ | ----- |
+| Black (none) | `0`   |
+| Red          | `1`   |
+| Green        | `2`   |
+| Yellow       | `3`   |
+| Blue         | `4`   |
+| Magenta      | `5`   |
+| Cyan         | `6`   |
+| White        | `7`   |
+
+</details>
+
 You can add these settings to your keyboard conf file to modify the config values, e.g. in `config/hummingbird.conf`:
 
 ```ini
