@@ -38,6 +38,28 @@ static const uint8_t rgb_idx[] = {DT_NODE_CHILD_IDX(DT_ALIAS(led_red)),
 // map from color values to names, for logging
 static const char *color_names[] = {"black", "red",     "green", "yellow",
                                     "blue",  "magenta", "cyan",  "white"};
+
+#if SHOW_LAYER_COLORS
+static const uint8_t *layer_color_idx[] = {
+  CONFIG_RGBLED_WIDGET_LAYER_0_COLOR, CONFIG_RGBLED_WIDGET_LAYER_1_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_2_COLOR, CONFIG_RGBLED_WIDGET_LAYER_3_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_4_COLOR, CONFIG_RGBLED_WIDGET_LAYER_5_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_6_COLOR, CONFIG_RGBLED_WIDGET_LAYER_7_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_8_COLOR, CONFIG_RGBLED_WIDGET_LAYER_9_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_10_COLOR, CONFIG_RGBLED_WIDGET_LAYER_11_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_12_COLOR, CONFIG_RGBLED_WIDGET_LAYER_13_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_14_COLOR, CONFIG_RGBLED_WIDGET_LAYER_15_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_16_COLOR, CONFIG_RGBLED_WIDGET_LAYER_17_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_18_COLOR, CONFIG_RGBLED_WIDGET_LAYER_19_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_20_COLOR, CONFIG_RGBLED_WIDGET_LAYER_21_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_22_COLOR, CONFIG_RGBLED_WIDGET_LAYER_23_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_24_COLOR, CONFIG_RGBLED_WIDGET_LAYER_25_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_26_COLOR, CONFIG_RGBLED_WIDGET_LAYER_27_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_28_COLOR, CONFIG_RGBLED_WIDGET_LAYER_29_COLOR,
+  CONFIG_RGBLED_WIDGET_LAYER_30_COLOR, CONFIG_RGBLED_WIDGET_LAYER_31_COLOR,
+};
+#endif
+
 // log shorthands
 #define LOG_CONN_CENTRAL(index, status, color_label)                                               \
     LOG_INF("Profile %d %s, blinking %s", index, status,                                           \
@@ -162,6 +184,33 @@ ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 #endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+#if SHOW_LAYER_COLORS
+uint8_t led_current_layer_color = 0;
+
+static int led_layer_color_listener_cb(const zmk_event_t *eh) {
+    ARG_UNUSED(eh);
+
+    if (!initialized) {
+      return 0;
+    }
+
+    uint8_t index = zmk_keymap_highest_layer_active();
+
+    if (led_current_layer_color != layer_color_idx[index]) {
+        led_current_layer_color = layer_color_idx[index];
+        static const struct blink_item color = {.duration_ms = 5, .color = current_layer_color};
+        LOG_INF("Setting layer color to %s for layer %d", color_names[current_layer_color], index);
+        k_msg_put(&led_msgq, &color, K_NO_WAIT);
+    }
+
+    return 0;
+}
+
+// run layer_color_listener_cb on layer status change event
+ZMK_LISTENER(led_layer_color_listener, led_layer_color_listener_cb);
+ZMK_SUBSCRIPTION(led_layer_color_listener, zmk_layer_state_changed);
+#endif // SHOW_LAYER_COLORS
+
 void indicate_layer(void) {
     uint8_t index = zmk_keymap_highest_layer_active();
     static const struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS,
@@ -180,7 +229,7 @@ void indicate_layer(void) {
         }
     }
 }
-#endif
+#endif // !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 
 #if SHOW_LAYER_CHANGE
 static struct k_work_delayable layer_indicate_work;
@@ -199,6 +248,20 @@ ZMK_LISTENER(led_layer_listener, led_layer_listener_cb);
 ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);
 #endif // SHOW_LAYER_CHANGE
 
+static void set_rgb_leds(uint8_t from_color, uint8_t to_color) {
+    for (uint8_t pos = 0; pos < 3; pos++) {
+        uint8_t bit = BIT(pos);
+        if (bit & from_color != bit & to_color) {
+            // bits are different, so we need to change one
+            if (bit & to_color) {
+                led_on(led_dev, rgb_idx[pos]);
+            } else {
+                led_off(led_dev, rgb_idx[pos]);
+            }
+        }
+    }
+}
+
 extern void led_process_thread(void *d0, void *d1, void *d2) {
     ARG_UNUSED(d0);
     ARG_UNUSED(d1);
@@ -208,6 +271,8 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
     k_work_init_delayable(&layer_indicate_work, indicate_layer_cb);
 #endif
 
+    uint8_t current_color = 0;
+
     while (true) {
         // wait until a blink item is received and process it
         struct blink_item blink;
@@ -216,21 +281,16 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
                 blink.duration_ms);
 
         // turn appropriate LEDs on
-        for (uint8_t pos = 0; pos < 3; pos++) {
-            if (BIT(pos) & blink.color) {
-                led_on(led_dev, rgb_idx[pos]);
-            }
-        }
+        set_rgb_leds(current_color, blink.color);
 
         // wait for blink duration
         k_sleep(K_MSEC(blink.duration_ms));
 
+#if SHOW_LAYER_COLORS
+        current_color = led_current_layer_color;
+#endif
         // turn appropriate LEDs off
-        for (uint8_t pos = 0; pos < 3; pos++) {
-            if (BIT(pos) & blink.color) {
-                led_off(led_dev, rgb_idx[pos]);
-            }
-        }
+        set_rgb_leds(blink.color, current_color);
 
         // wait interval before processing another blink
         if (blink.sleep_ms > 0) {
