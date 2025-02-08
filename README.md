@@ -19,7 +19,7 @@ Currently the widget does the following:
 - Blink 🔵 for connected, 🟡 for open (advertising), 🔴 for disconnected profiles on every BT profile switch (on central side for splits)
 - Blink 🔵 for connected, 🔴 for disconnected on peripheral side of splits
 
-In addition, there are two ways, each off by default, to indicate the layer:
+In addition, there are two ways (each off by default) to indicate the layer:
 
 - enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE` to show the highest active layer on every layer activation
   using a sequence of N cyan color blinks, where N is the zero-based index of the layer.
