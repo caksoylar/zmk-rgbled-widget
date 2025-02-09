@@ -251,7 +251,7 @@ ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);
 static void set_rgb_leds(uint8_t from_color, uint8_t to_color) {
     for (uint8_t pos = 0; pos < 3; pos++) {
         uint8_t bit = BIT(pos);
-        if (bit & from_color != bit & to_color) {
+        if ((bit & from_color) != (bit & to_color)) {
             // bits are different, so we need to change one
             if (bit & to_color) {
                 led_on(led_dev, rgb_idx[pos]);
