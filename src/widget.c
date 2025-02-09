@@ -187,13 +187,7 @@ ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 #if SHOW_LAYER_COLORS
 uint8_t led_current_layer_color = 0;
 
-static int led_layer_color_listener_cb(const zmk_event_t *eh) {
-    ARG_UNUSED(eh);
-
-    if (!initialized) {
-      return 0;
-    }
-
+void update_layer_color(void) {
     uint8_t index = zmk_keymap_highest_layer_active();
 
     if (led_current_layer_color != layer_color_idx[index]) {
@@ -202,6 +196,16 @@ static int led_layer_color_listener_cb(const zmk_event_t *eh) {
         LOG_INF("Setting layer color to %s for layer %d", color_names[current_layer_color], index);
         k_msg_put(&led_msgq, &color, K_NO_WAIT);
     }
+}
+
+static int led_layer_color_listener_cb(const zmk_event_t *eh) {
+    ARG_UNUSED(eh);
+
+    if (!initialized) {
+      return 0;
+    }
+
+    update_layer_color();
 
     return 0;
 }
@@ -326,6 +330,11 @@ extern void led_init_thread(void *d0, void *d1, void *d2) {
     LOG_INF("Indicating initial connectivity status");
     indicate_connectivity();
 #endif // IS_ENABLED(CONFIG_ZMK_BLE)
+
+#if SHOW_LAYER_COLORS
+    LOG_INF("Setting initial layer color");
+    update_layer_color();
+#endif // SHOW_LAYER_COLORS
 
     initialized = true;
     LOG_INF("Finished initializing LED widget");
