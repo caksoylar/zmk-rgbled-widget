@@ -192,7 +192,7 @@ void update_layer_color(void) {
 
     if (led_current_layer_color != layer_color_idx[index]) {
         led_current_layer_color = layer_color_idx[index];
-        struct blink_item color = {.duration_ms = 5, .color = led_current_layer_color};
+        struct blink_item color = {.duration_ms = 5, .color = led_current_layer_color, .sleep_ms = 5};
         LOG_INF("Setting layer color to %s for layer %d", color_names[led_current_layer_color], index);
         k_msgq_put(&led_msgq, &color, K_NO_WAIT);
     }
