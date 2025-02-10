@@ -282,13 +282,14 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
         LOG_DBG("Got a blink item from msgq, color %d, duration %d", blink.color,
                 blink.duration_ms);
 
+        // turn appropriate LEDs on
         if (blink.color == current_color && current_color != 0) {
             set_rgb_leds(current_color, 0);
             k_sleep(K_MSEC(blink.duration_ms));
+            set_rgb_leds(0, blink.color);
+        } else {
+            set_rgb_leds(current_color, blink.color);
         }
-
-        // turn appropriate LEDs on
-        set_rgb_leds(current_color, blink.color);
 
         // wait for blink duration
         k_sleep(K_MSEC(blink.duration_ms));
