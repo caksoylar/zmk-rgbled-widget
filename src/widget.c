@@ -303,7 +303,7 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
             k_sleep(K_MSEC(blink.duration_ms));
             set_rgb_leds(0, current_color);
         } else {
-            set_rgb_leds(blink_color, current_color);
+            set_rgb_leds(blink.color, current_color);
         }
 
         // wait interval before processing another blink
