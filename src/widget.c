@@ -75,7 +75,6 @@ static const uint8_t layer_color_idx[] = {
 struct blink_item {
     uint8_t color;
     uint16_t duration_ms;
-    bool first_item;
     uint16_t sleep_ms;
 };
 
@@ -134,8 +133,7 @@ ZMK_SUBSCRIPTION(led_output_listener, zmk_split_peripheral_status_changed);
 
 #if IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 void indicate_battery(void) {
-    struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS,
-                               .first_item = true};
+    struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS};
     uint8_t battery_level = zmk_battery_state_of_charge();
     int retry = 0;
     while (battery_level == 0 && retry++ < 10) {
@@ -183,7 +181,6 @@ ZMK_LISTENER(led_battery_listener, led_battery_listener_cb);
 ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 #endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 
-#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 #if SHOW_LAYER_COLORS
 uint8_t led_current_layer_color = 0;
 
@@ -215,6 +212,7 @@ ZMK_LISTENER(led_layer_color_listener, led_layer_color_listener_cb);
 ZMK_SUBSCRIPTION(led_layer_color_listener, zmk_layer_state_changed);
 #endif // SHOW_LAYER_COLORS
 
+#if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 void indicate_layer(void) {
     uint8_t index = zmk_keymap_highest_layer_active();
     static const struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS,
@@ -284,8 +282,14 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
         LOG_DBG("Got a blink item from msgq, color %d, duration %d", blink.color,
                 blink.duration_ms);
 
+        if (blink.color == current_color && current_color != 0) {
+            set_rgb_leds(current_color, 0);
+            k_sleep(K_MSEC(blink.duration_ms));
+        }
+
         // turn appropriate LEDs on
         set_rgb_leds(current_color, blink.color);
+        blink_color = blink.color;
 
         // wait for blink duration
         k_sleep(K_MSEC(blink.duration_ms));
@@ -293,8 +297,15 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
 #if SHOW_LAYER_COLORS
         current_color = led_current_layer_color;
 #endif
+
         // turn appropriate LEDs off
-        set_rgb_leds(blink.color, current_color);
+        if (blink.color == current_color && current_color != 0) {
+            set_rgb_leds(blink.color, 0);
+            k_sleep(K_MSEC(blink.duration_ms));
+            set_rgb_leds(0, current_color);
+        else {
+            set_rgb_leds(blink_color, current_color);
+        }
 
         // wait interval before processing another blink
         if (blink.sleep_ms > 0) {
