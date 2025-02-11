@@ -285,7 +285,7 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
         // turn appropriate LEDs on
         if (blink.color == current_color && current_color != 0) {
             set_rgb_leds(current_color, 0);
-            k_sleep(K_MSEC(blink.duration_ms));
+            k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_INTERVAL_MS));
             set_rgb_leds(0, blink.color);
         } else {
             set_rgb_leds(current_color, blink.color);
