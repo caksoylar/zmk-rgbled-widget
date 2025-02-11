@@ -201,12 +201,9 @@ void update_layer_color(void) {
 static int led_layer_color_listener_cb(const zmk_event_t *eh) {
     ARG_UNUSED(eh);
 
-    if (!initialized) {
-      return 0;
+    if (initialized) {
+        update_layer_color();
     }
-
-    update_layer_color();
-
     return 0;
 }
 
