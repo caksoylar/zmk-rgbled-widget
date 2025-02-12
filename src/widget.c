@@ -292,6 +292,7 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
             previous_color = led_current_color;
             separation = blink.color == led_current_color && blink.color > 0;
 
+            // Blink the leds, using a separation blink if necessary
             if (separation) {
                 set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
             }
@@ -299,12 +300,10 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
             if (separation) {
                 set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
             }
-            set_rgb_leds(previous_color, blink.sleep_ms);
-
             // wait interval before processing another blink
-            if (blink.sleep_ms == 0) {
-                k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_INTERVAL_MS));
-            }
+            set_rgb_leds(previous_color, blink.sleep_ms > 0 ? blink.sleep_ms :
+                         CONFIG_RGBLED_WIDGET_INTERVAL_MS);
+
         } else {
             LOG_DBG("Got a layer color item from msgq, color %d", blink.color);
             set_rgb_leds(blink.color, 0);
