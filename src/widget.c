@@ -192,7 +192,7 @@ void update_layer_color(void) {
 
     if (led_current_layer_color != layer_color_idx[index]) {
         led_current_layer_color = layer_color_idx[index];
-        struct blink_item color = {.duration_ms = 5, .color = led_current_layer_color, .sleep_ms = 5};
+        struct blink_item color = {.color = led_current_layer_color};
         LOG_INF("Setting layer color to %s for layer %d", color_names[led_current_layer_color], index);
         k_msgq_put(&led_msgq, &color, K_NO_WAIT);
     }
@@ -250,18 +250,24 @@ ZMK_LISTENER(led_layer_listener, led_layer_listener_cb);
 ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);
 #endif // SHOW_LAYER_CHANGE
 
-static void set_rgb_leds(uint8_t from_color, uint8_t to_color) {
+uint8_t led_current_color = 0;
+
+static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
     for (uint8_t pos = 0; pos < 3; pos++) {
         uint8_t bit = BIT(pos);
-        if ((bit & from_color) != (bit & to_color)) {
+        if ((bit & led_current_color) != (bit & color)) {
             // bits are different, so we need to change one
-            if (bit & to_color) {
+            if (bit & color) {
                 led_on(led_dev, rgb_idx[pos]);
             } else {
                 led_off(led_dev, rgb_idx[pos]);
             }
         }
     }
+    if (duration_ms > 0) {
+        k_sleep(K_MSEC(duration_ms));
+    }
+    led_current_color = color;
 }
 
 extern void led_process_thread(void *d0, void *d1, void *d2) {
@@ -273,45 +279,35 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
     k_work_init_delayable(&layer_indicate_work, indicate_layer_cb);
 #endif
 
-    uint8_t current_color = 0;
-
     while (true) {
         // wait until a blink item is received and process it
         struct blink_item blink;
+        uint8_t previous_color;
+        bool separation;
         k_msgq_get(&led_msgq, &blink, K_FOREVER);
-        LOG_DBG("Got a blink item from msgq, color %d, duration %d", blink.color,
-                blink.duration_ms);
+        if (blink.duration_ms > 0) {
+            LOG_DBG("Got a blink item from msgq, color %d, duration %d",
+                    blink.color, blink.duration_ms);
 
-        // turn appropriate LEDs on
-        if (blink.color == current_color && current_color != 0) {
-            set_rgb_leds(current_color, 0);
-            k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_INTERVAL_MS));
-            set_rgb_leds(0, blink.color);
+            previous_color = led_current_color;
+            separation = blink.color == led_current_color && blink.color > 0;
+
+            if (separation) {
+                set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
+            }
+            set_rgb_leds(blink.color, blink.duration_ms);
+            if (separation) {
+                set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
+            }
+            set_rgb_leds(previous_color, blink.sleep_ms);
+
+            // wait interval before processing another blink
+            if (blink.sleep_ms == 0) {
+                k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_INTERVAL_MS));
+            }
         } else {
-            set_rgb_leds(current_color, blink.color);
-        }
-
-        // wait for blink duration
-        k_sleep(K_MSEC(blink.duration_ms));
-
-#if SHOW_LAYER_COLORS
-        current_color = led_current_layer_color;
-#endif
-
-        // turn appropriate LEDs off
-        if (blink.color == current_color && current_color != 0) {
+            LOG_DBG("Got a layer color item from msgq, color %d", blink.color);
             set_rgb_leds(blink.color, 0);
-            k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_INTERVAL_MS));
-            set_rgb_leds(0, current_color);
-        } else {
-            set_rgb_leds(blink.color, current_color);
-        }
-
-        // wait interval before processing another blink
-        if (blink.sleep_ms > 0) {
-            k_sleep(K_MSEC(blink.sleep_ms));
-        } else {
-            k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_INTERVAL_MS));
         }
     }
 }
