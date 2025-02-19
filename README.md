@@ -12,20 +12,26 @@ It is used to indicate battery level and BLE connection status in a minimalist w
   https://github.com/caksoylar/zmk-rgbled-widget/assets/7876996/cfd89dd1-ff24-4a33-8563-2fdad2a828d4
 </details>
 
-Currently the widget does the following:
+### Battery status 
 
-- Blink 🟢/🟡/🔴 on boot depending on battery level (for both central/peripherals), thresholds set by `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH` and `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`
+- Blink 🟢/🟡/🔴 on boot depending on battery level, with thresholds [set](#configuration) by `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH` and `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`
 - Blink 🔴 on every battery level change if below critical battery level (`CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL`)
+
+### Connection status
+
 - Blink 🔵 for connected, 🟡 for open (advertising), 🔴 for disconnected profiles on every BT profile switch (on central side for splits)
 - Blink 🔵 for connected, 🔴 for disconnected on peripheral side of splits
 
-In addition, if desired you can pick one of the following methods (off by default) to indicate the layer:
+### Layer state
 
-- enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE` to show the highest active layer on every layer activation
-  using a sequence of N cyan color blinks, where N is the zero-based index of the layer.
-- or enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS` to assign each layer its own color, which will remain on while that layer is active.
+You can pick one of the following methods (off by default) to indicate the highest active layer:
 
-In addition, there are keymap behaviors you can use to show the status on demand, see [below](#showing-status-on-demand).
+- Enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE` to show the highest active layer on every layer activation
+  using a sequence of N cyan color blinks, where N is the zero-based index of the layer, or
+- Enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS` to assign each layer its own color, which will remain on while that layer is the highest active layer
+
+> [!TIP]
+> Also see [below](#showing-status-on-demand) for keymap behaviors you can use to show the status on demand.
 
 ## Installation
 
@@ -62,7 +68,7 @@ include:
     shield: hummingbird rgbled_adapter
 ```
 
-For other keyboards, see the "Adding support" section below.
+For other keyboards, see the ["Adding support" section](#adding-support-in-custom-boardsshields) below.
 
 ## Showing status on demand
 
@@ -91,7 +97,7 @@ This will happen on all keyboard parts for split keyboards, so make sure to flas
 
 > [!NOTE]
 > The behaviors can be used even when you use split keyboards with different controllers that don't all support the widget.
-> Make sure that you use the `rgbled_adapter` shield (or enable `CONFIG_RGBLED_WIDGET`) only for the keyboard parts that support it.
+> Make sure that you use the `rgbled_adapter` shield (or enable `CONFIG_RGBLED_WIDGET` if not using the adapter) only for the keyboard parts that support it.
 
 ## Configuration
 
