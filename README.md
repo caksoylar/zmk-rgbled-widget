@@ -19,7 +19,7 @@ It is used to indicate battery level and BLE connection status in a minimalist w
 
 ### Connection status
 
-- Blink 🔵 for connected, 🟡 for open (advertising), 🔴 for disconnected profiles on every BT profile switch (on central side for splits)
+- Blink 🔵 for connected, 🟡 for open (advertising), 🔴 for disconnected profiles on boot after the battery blink, and following every BT profile switch (only on central side for splits)
 - Blink 🔵 for connected, 🔴 for disconnected on peripheral side of splits
 
 ### Layer state
