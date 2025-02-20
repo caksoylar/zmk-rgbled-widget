@@ -184,16 +184,15 @@ ZMK_LISTENER(led_battery_listener, led_battery_listener_cb);
 ZMK_SUBSCRIPTION(led_battery_listener, zmk_battery_state_changed);
 #endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 
+uint8_t led_layer_color = 0;
 #if SHOW_LAYER_COLORS
-uint8_t led_current_layer_color = 0;
-
 void update_layer_color(void) {
     uint8_t index = zmk_keymap_highest_layer_active();
 
-    if (led_current_layer_color != layer_color_idx[index]) {
-        led_current_layer_color = layer_color_idx[index];
-        struct blink_item color = {.color = led_current_layer_color};
-        LOG_INF("Setting layer color to %s for layer %d", color_names[led_current_layer_color], index);
+    if (led_layer_color != layer_color_idx[index]) {
+        led_layer_color = layer_color_idx[index];
+        struct blink_item color = {.color = led_layer_color};
+        LOG_INF("Setting layer color to %s for layer %d", color_names[led_layer_color], index);
         k_msgq_put(&led_msgq, &color, K_NO_WAIT);
     }
 }
@@ -282,26 +281,21 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
     while (true) {
         // wait until a blink item is received and process it
         struct blink_item blink;
-        uint8_t previous_color;
-        bool separation;
         k_msgq_get(&led_msgq, &blink, K_FOREVER);
         if (blink.duration_ms > 0) {
             LOG_DBG("Got a blink item from msgq, color %d, duration %d",
                     blink.color, blink.duration_ms);
 
-            previous_color = led_current_color;
-            separation = blink.color == led_current_color && blink.color > 0;
-
             // Blink the leds, using a separation blink if necessary
-            if (separation) {
+            if (blink.color == led_current_color && blink.color > 0) {
                 set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
             }
             set_rgb_leds(blink.color, blink.duration_ms);
-            if (separation) {
+            if (blink.color == led_layer_color && blink.color > 0) {
                 set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
             }
             // wait interval before processing another blink
-            set_rgb_leds(previous_color, blink.sleep_ms > 0 ? blink.sleep_ms :
+            set_rgb_leds(led_layer_color, blink.sleep_ms > 0 ? blink.sleep_ms :
                          CONFIG_RGBLED_WIDGET_INTERVAL_MS);
 
         } else {
