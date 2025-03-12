@@ -30,8 +30,10 @@ You can pick one of the following methods (off by default) to indicate the highe
   using a sequence of N cyan color blinks, where N is the zero-based index of the layer, or
 - Enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS` to assign each layer its own color, which will remain on while that layer is the highest active layer
 
+These layer indicators will only be active on the central part of a split keyboard, since peripheral parts aren't aware of the layer information.
+
 > [!TIP]
-> Also see [below](#showing-status-on-demand) for keymap behaviors you can use to show the status on demand.
+> Also see [below](#showing-status-on-demand) for keymap behaviors you can use to show the battery and connection status on demand.
 
 ## Installation
 
