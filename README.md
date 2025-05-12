@@ -12,9 +12,10 @@ It is used to indicate battery level and BLE connection status in a minimalist w
   https://github.com/caksoylar/zmk-rgbled-widget/assets/7876996/cfd89dd1-ff24-4a33-8563-2fdad2a828d4
 </details>
 
-### Battery status 
+### Battery status
 
-- Blink 🟢/🟡/🔴 on boot depending on battery level, with thresholds [set](#configuration) by `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH` and `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`
+- Blink 🟢/🟡/🔴 on boot depending on battery level, with thresholds [set](#configuration-details) by `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH` and `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`
+  - See [options](#battery-levels-for-splits) for showing battery levels for splits
 - Blink 🔴 on every battery level change if below critical battery level (`CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL`)
 
 ### Connection status
@@ -101,41 +102,102 @@ This will happen on all keyboard parts for split keyboards, so make sure to flas
 > The behaviors can be used even when you use split keyboards with different controllers that don't all support the widget.
 > Make sure that you use the `rgbled_adapter` shield (or enable `CONFIG_RGBLED_WIDGET` if not using the adapter) only for the keyboard parts that support it.
 
-## Configuration
+## Battery levels for splits
+
+For split keyboards, each part will indicate its own battery level with a single battery blink, by default.
+However, for some scenarios like keyboards with dongles and no LED on the peripherals, you might want the central part to show the battery levels of peripherals too.
+This can be done by enabling one of the below settings:
+
+- `CONFIG_RGBLED_WIDGET_BATTERY_SHOW_PERIPHERALS`: Blink for battery level of self and then the peripherals, in order
+- `CONFIG_RGBLED_WIDGET_BATTERY_SHOW_ONLY_PERIPHERALS`: Blink for battery level of only the peripherals, in order
+
+These two settings only apply to split central parts.
+The order of blinks for peripherals is determined by the initial pairing order for the split parts.
+If a part is currently disconnected, a magenta/purple ([configurable](#configuration-details)) blink will be displayed.
+
+## Configuration details
 
 <details>
-<summary>Expand to see available configuration options</summary>
+<summary>General configuration options</summary>
 
-| Name                                           | Description                                                                  | Default       |
-| ---------------------------------------------- | ---------------------------------------------------------------------------- | ------------- |
-| `CONFIG_RGBLED_WIDGET_INTERVAL_MS`             | Minimum wait duration between two blinks in ms                               | 500           |
-| `CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS`        | Duration of battery level blink in ms                                        | 2000          |
-| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH`      | High battery level percentage                                                | 80            |
-| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`       | Low battery level percentage                                                 | 20            |
-| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL`  | Critical battery level percentage, blink periodically if under               | 5             |
-| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_HIGH`      | Color for high battery level (above `LEVEL_HIGH`)                            | Green (`2`)   |
-| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MEDIUM`    | Color for medium battery level (between `LEVEL_LOW` and `LEVEL_HIGH`)        | Yellow (`3`)  |
-| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_LOW`       | Color for low battery level (below `LEVEL_LOW`)                              | Red (`1`)     |
-| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_CRITICAL`  | Color for critical battery level (below `LEVEL_CRITICAL`)                    | Red (`1`)     |
-| `CONFIG_RGBLED_WIDGET_CONN_BLINK_MS`           | Duration of BLE connection status blink in ms                                | 1000          |
-| `CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED`    | Color for connected BLE connection status                                    | Blue (`4`)    |
-| `CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING`  | Color for advertising BLE connection status                                  | Yellow (`3`)  |
-| `CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED` | Color for disconnected BLE connection status                                 | Red (`1`)     |
-| `CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE`       | Indicate highest active layer on each layer change with a sequence of blinks | `n`           |
-| `CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS`          | Blink and wait duration for layer indicator                                  | 100           |
-| `CONFIG_RGBLED_WIDGET_LAYER_COLOR`             | Color to use for layer indicator                                             | Cyan (`6`)    |
-| `CONFIG_RGBLED_WIDGET_LAYER_DEBOUNCE_MS`       | Wait duration after a layer change before showing the highest active layer   | 100           |
-| `CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS`       | Indicate highest active layer with a constant configurable color per layer   | `n`           |
-| `CONFIG_RGBLED_WIDGET_LAYER_0_COLOR`           | Color to use for the base layer                                              | Black (`0`)   |
-| `CONFIG_RGBLED_WIDGET_LAYER_1_COLOR`           | Color to use for layer 1                                                     | Red (`1`)     |
-| `CONFIG_RGBLED_WIDGET_LAYER_2_COLOR`           | Color to use for layer 2                                                     | Green (`2`)   |
-| `CONFIG_RGBLED_WIDGET_LAYER_3_COLOR`           | Color to use for layer 3                                                     | Yellow (`3`)  |
-| `CONFIG_RGBLED_WIDGET_LAYER_4_COLOR`           | Color to use for layer 4                                                     | Blue (`4`)    |
-| `CONFIG_RGBLED_WIDGET_LAYER_5_COLOR`           | Color to use for layer 5                                                     | Magenta (`5`) |
-| `CONFIG_RGBLED_WIDGET_LAYER_6_COLOR`           | Color to use for layer 6                                                     | Cyan (`6`)    |
-| `CONFIG_RGBLED_WIDGET_LAYER_7_COLOR`           | Color to use for layer 7                                                     | White (`7`)   |
-| `CONFIG_RGBLED_WIDGET_LAYER_xx_COLOR`          | Color to use for layer xx (change xx to the layer number to change)          | Black (`0`)   |
+| Name                               | Description                                    | Default |
+| ---------------------------------- | ---------------------------------------------- | ------- |
+| `CONFIG_RGBLED_WIDGET_INTERVAL_MS` | Minimum wait duration between two blinks in ms | 500     |
 
+</details>
+
+<details>
+<summary>Battery-related configuration options</summary>
+
+| Name                                          | Description                                                           | Default       |
+| --------------------------------------------- | --------------------------------------------------------------------- | ------------- |
+| `CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS`       | Duration of battery level blink in ms                                 | 2000          |
+| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH`     | High battery level percentage                                         | 80            |
+| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`      | Low battery level percentage                                          | 20            |
+| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL` | Critical battery level percentage, blink periodically if under        | 5             |
+| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL` | Critical battery level percentage, blink periodically if under        | 5             |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_HIGH`     | Color for high battery level (above `LEVEL_HIGH`)                     | Green (`2`)   |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MEDIUM`   | Color for medium battery level (between `LEVEL_LOW` and `LEVEL_HIGH`) | Yellow (`3`)  |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_LOW`      | Color for low battery level (below `LEVEL_LOW`)                       | Red (`1`)     |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_CRITICAL` | Color for critical battery level (below `LEVEL_CRITICAL`)             | Red (`1`)     |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MISSING`  | Color for battery not detected, or peripheral disconnected            | Magenta (`5`) |
+
+Only one of the options below can be enabled.
+The non-default ones (second and third below) only work on central parts of splits.
+
+| Name                                                 | Description                                             | Default |
+| ---------------------------------------------------- | ------------------------------------------------------- | ------- |
+| `CONFIG_RGBLED_WIDGET_BATTERY_SHOW_SELF`             | Indicate battery level from self only                   | `n`     |
+| `CONFIG_RGBLED_WIDGET_BATTERY_SHOW_PERIPHERALS`      | On a split central, also show peripheral battery levels | `n`     |
+| `CONFIG_RGBLED_WIDGET_BATTERY_SHOW_ONLY_PERIPHERALS` | On a split central, show only peripheral battery levels | `n`     |
+
+</details>
+
+<details>
+<summary>Connectivity-related configuration options</summary>
+
+| Name                                           | Description                                   | Default      |
+| ---------------------------------------------- | --------------------------------------------- | ------------ |
+| `CONFIG_RGBLED_WIDGET_CONN_BLINK_MS`           | Duration of BLE connection status blink in ms | 1000         |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED`    | Color for connected BLE connection status     | Blue (`4`)   |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING`  | Color for advertising BLE connection status   | Yellow (`3`) |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED` | Color for disconnected BLE connection status  | Red (`1`)    |
+
+</details>
+
+<details>
+<summary>Layers-related configuration options</summary>
+
+Layer indicator only works on non-splits and central parts of splits.
+
+Below enable and configure the sequence-based layer indicator.
+
+| Name                                     | Description                                                                  | Default    |
+| ---------------------------------------- | ---------------------------------------------------------------------------- | ---------- |
+| `CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE` | Indicate highest active layer on each layer change with a sequence of blinks | `n`        |
+| `CONFIG_RGBLED_WIDGET_LAYER_BLINK_MS`    | Blink and wait duration for layer indicator                                  | 100        |
+| `CONFIG_RGBLED_WIDGET_LAYER_COLOR`       | Color to use for layer indicator                                             | Cyan (`6`) |
+| `CONFIG_RGBLED_WIDGET_LAYER_DEBOUNCE_MS` | Wait duration after a layer change before showing the highest active layer   | 100        |
+
+Below enable and configure the color-based layer indicator.
+
+| Name                                     | Description                                                                | Default       |
+| ---------------------------------------- | -------------------------------------------------------------------------- | ------------- |
+| `CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS` | Indicate highest active layer with a constant configurable color per layer | `n`           |
+| `CONFIG_RGBLED_WIDGET_LAYER_0_COLOR`     | Color to use for the base layer                                            | Black (`0`)   |
+| `CONFIG_RGBLED_WIDGET_LAYER_1_COLOR`     | Color to use for layer 1                                                   | Red (`1`)     |
+| `CONFIG_RGBLED_WIDGET_LAYER_2_COLOR`     | Color to use for layer 2                                                   | Green (`2`)   |
+| `CONFIG_RGBLED_WIDGET_LAYER_3_COLOR`     | Color to use for layer 3                                                   | Yellow (`3`)  |
+| `CONFIG_RGBLED_WIDGET_LAYER_4_COLOR`     | Color to use for layer 4                                                   | Blue (`4`)    |
+| `CONFIG_RGBLED_WIDGET_LAYER_5_COLOR`     | Color to use for layer 5                                                   | Magenta (`5`) |
+| `CONFIG_RGBLED_WIDGET_LAYER_6_COLOR`     | Color to use for layer 6                                                   | Cyan (`6`)    |
+| `CONFIG_RGBLED_WIDGET_LAYER_7_COLOR`     | Color to use for layer 7                                                   | White (`7`)   |
+| `CONFIG_RGBLED_WIDGET_LAYER_xx_COLOR`    | Color to use for layer xx (change xx to the layer number to change)        | Black (`0`)   |
+
+</details>
+
+<details>
+<summary>Mapping for color values</summary>
 Color settings use the following integer values:
 
 | Color        | Value |

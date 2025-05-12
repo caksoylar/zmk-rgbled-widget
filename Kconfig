@@ -22,6 +22,24 @@ config RGBLED_WIDGET_INTERVAL_MS
 
 # Battery level settings
 
+choice RGBLED_WIDGET_BATTERY_SHOW
+    prompt "Which battery levels to indicate, non-defaults only work for split centrals"
+
+config RGBLED_WIDGET_BATTERY_SHOW_SELF
+    bool "Indicate battery level from self only"
+
+config RGBLED_WIDGET_BATTERY_SHOW_PERIPHERALS
+    bool "Indicate battery levels from self and peripherals (if split central)"
+    depends on (ZMK_SPLIT && ZMK_SPLIT_ROLE_CENTRAL)
+    select ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
+
+config RGBLED_WIDGET_BATTERY_SHOW_ONLY_PERIPHERALS
+    bool "Indicate battery levels from peripherals only (if split central)"
+    depends on (ZMK_SPLIT && ZMK_SPLIT_ROLE_CENTRAL)
+    select ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
+
+endchoice
+
 config RGBLED_WIDGET_BATTERY_BLINK_MS
     int "Duration of battery level blink in ms"
     default 2000
@@ -57,6 +75,11 @@ config RGBLED_WIDGET_BATTERY_COLOR_CRITICAL
     int "Color for critical battery level (below LEVEL_CRITICAL)"
     range 0 7
     default $(COLOR_RED)
+
+config RGBLED_WIDGET_BATTERY_COLOR_MISSING
+    int "Color for battery not detected, or peripheral disconnected"
+    range 0 7
+    default $(COLOR_MAGENTA)
 
 # Connectivity indicator settings
 config RGBLED_WIDGET_CONN_BLINK_MS

@@ -13,6 +13,7 @@
 #include <zmk/events/split_peripheral_status_changed.h>
 #include <zmk/keymap.h>
 #include <zmk/split/bluetooth/peripheral.h>
+#include <zmk/split/central.h>
 
 #include <zephyr/logging/log.h>
 
@@ -30,7 +31,8 @@ BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_blue)),
              "An alias for a blue LED is not found for RGBLED_WIDGET");
 
 BUILD_ASSERT(!(SHOW_LAYER_CHANGE && SHOW_LAYER_COLORS),
-             "CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE and CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS are mutually exclusive");
+             "CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE and CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS "
+             "are mutually exclusive");
 
 // GPIO-based LED device and indices of red/green/blue LEDs inside its DT node
 static const struct device *led_dev = DEVICE_DT_GET(LED_GPIO_NODE_ID);
@@ -44,22 +46,22 @@ static const char *color_names[] = {"black", "red",     "green", "yellow",
 
 #if SHOW_LAYER_COLORS
 static const uint8_t layer_color_idx[] = {
-  CONFIG_RGBLED_WIDGET_LAYER_0_COLOR, CONFIG_RGBLED_WIDGET_LAYER_1_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_2_COLOR, CONFIG_RGBLED_WIDGET_LAYER_3_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_4_COLOR, CONFIG_RGBLED_WIDGET_LAYER_5_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_6_COLOR, CONFIG_RGBLED_WIDGET_LAYER_7_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_8_COLOR, CONFIG_RGBLED_WIDGET_LAYER_9_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_10_COLOR, CONFIG_RGBLED_WIDGET_LAYER_11_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_12_COLOR, CONFIG_RGBLED_WIDGET_LAYER_13_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_14_COLOR, CONFIG_RGBLED_WIDGET_LAYER_15_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_16_COLOR, CONFIG_RGBLED_WIDGET_LAYER_17_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_18_COLOR, CONFIG_RGBLED_WIDGET_LAYER_19_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_20_COLOR, CONFIG_RGBLED_WIDGET_LAYER_21_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_22_COLOR, CONFIG_RGBLED_WIDGET_LAYER_23_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_24_COLOR, CONFIG_RGBLED_WIDGET_LAYER_25_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_26_COLOR, CONFIG_RGBLED_WIDGET_LAYER_27_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_28_COLOR, CONFIG_RGBLED_WIDGET_LAYER_29_COLOR,
-  CONFIG_RGBLED_WIDGET_LAYER_30_COLOR, CONFIG_RGBLED_WIDGET_LAYER_31_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_0_COLOR,  CONFIG_RGBLED_WIDGET_LAYER_1_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_2_COLOR,  CONFIG_RGBLED_WIDGET_LAYER_3_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_4_COLOR,  CONFIG_RGBLED_WIDGET_LAYER_5_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_6_COLOR,  CONFIG_RGBLED_WIDGET_LAYER_7_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_8_COLOR,  CONFIG_RGBLED_WIDGET_LAYER_9_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_10_COLOR, CONFIG_RGBLED_WIDGET_LAYER_11_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_12_COLOR, CONFIG_RGBLED_WIDGET_LAYER_13_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_14_COLOR, CONFIG_RGBLED_WIDGET_LAYER_15_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_16_COLOR, CONFIG_RGBLED_WIDGET_LAYER_17_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_18_COLOR, CONFIG_RGBLED_WIDGET_LAYER_19_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_20_COLOR, CONFIG_RGBLED_WIDGET_LAYER_21_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_22_COLOR, CONFIG_RGBLED_WIDGET_LAYER_23_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_24_COLOR, CONFIG_RGBLED_WIDGET_LAYER_25_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_26_COLOR, CONFIG_RGBLED_WIDGET_LAYER_27_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_28_COLOR, CONFIG_RGBLED_WIDGET_LAYER_29_COLOR,
+    CONFIG_RGBLED_WIDGET_LAYER_30_COLOR, CONFIG_RGBLED_WIDGET_LAYER_31_COLOR,
 };
 #endif
 
@@ -135,30 +137,62 @@ ZMK_SUBSCRIPTION(led_output_listener, zmk_split_peripheral_status_changed);
 #endif // IS_ENABLED(CONFIG_ZMK_BLE)
 
 #if IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
+static inline uint8_t get_battery_color(uint8_t battery_level) {
+    if (battery_level == 0) {
+        LOG_INF("Battery level undetermined (zero), blinking %s",
+                color_names[CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MISSING]);
+        return CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MISSING;
+    }
+    if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH) {
+        LOG_BATTERY(battery_level, HIGH);
+        return CONFIG_RGBLED_WIDGET_BATTERY_COLOR_HIGH;
+    }
+    if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW) {
+        LOG_BATTERY(battery_level, MEDIUM);
+        return CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MEDIUM;
+    }
+    LOG_BATTERY(battery_level, LOW);
+    return CONFIG_RGBLED_WIDGET_BATTERY_COLOR_LOW;
+}
+
 void indicate_battery(void) {
     struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS};
-    uint8_t battery_level = zmk_battery_state_of_charge();
     int retry = 0;
+
+#if IS_ENABLED(CONFIG_RGBLED_WIDGET_BATTERY_SHOW_SELF) ||                                          \
+    IS_ENABLED(CONFIG_RGBLED_WIDGET_BATTERY_SHOW_PERIPHERALS)
+    uint8_t battery_level = zmk_battery_state_of_charge();
     while (battery_level == 0 && retry++ < 10) {
         k_sleep(K_MSEC(100));
         battery_level = zmk_battery_state_of_charge();
     };
 
-    if (battery_level == 0) {
-        LOG_INF("Battery level undetermined (zero), blinking magenta");
-        blink.color = 5;
-    } else if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH) {
-        LOG_BATTERY(battery_level, HIGH);
-        blink.color = CONFIG_RGBLED_WIDGET_BATTERY_COLOR_HIGH;
-    } else if (battery_level >= CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW) {
-        LOG_BATTERY(battery_level, MEDIUM);
-        blink.color = CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MEDIUM;
-    } else {
-        LOG_BATTERY(battery_level, LOW);
-        blink.color = CONFIG_RGBLED_WIDGET_BATTERY_COLOR_LOW;
-    }
-
+    blink.color = get_battery_color(battery_level);
     k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
+#endif
+
+#if IS_ENABLED(CONFIG_RGBLED_WIDGET_BATTERY_SHOW_PERIPHERALS) ||                                   \
+    IS_ENABLED(CONFIG_RGBLED_WIDGET_BATTERY_SHOW_ONLY_PERIPHERALS)
+    for (uint8_t i = 0; i < ZMK_SPLIT_CENTRAL_PERIPHERAL_COUNT; i++) {
+        uint8_t peripheral_level;
+        int ret = zmk_split_central_get_peripheral_battery_level(i, &peripheral_level);
+        if (ret == 0) {
+            retry = 0;
+            while (peripheral_level == 0 && retry++ < (CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS +
+                                                       CONFIG_RGBLED_WIDGET_INTERVAL_MS) /
+                                                          100) {
+                k_sleep(K_MSEC(100));
+                zmk_split_central_get_peripheral_battery_level(i, &peripheral_level);
+            }
+
+            LOG_INF("Got battery level for peripheral %d:", i);
+            blink.color = get_battery_color(peripheral_level);
+            k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
+        } else {
+            LOG_ERR("Error looking up battery level for peripheral %d", i);
+        }
+    }
+#endif
 }
 
 static int led_battery_listener_cb(const zmk_event_t *eh) {
@@ -283,8 +317,8 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
         struct blink_item blink;
         k_msgq_get(&led_msgq, &blink, K_FOREVER);
         if (blink.duration_ms > 0) {
-            LOG_DBG("Got a blink item from msgq, color %d, duration %d",
-                    blink.color, blink.duration_ms);
+            LOG_DBG("Got a blink item from msgq, color %d, duration %d", blink.color,
+                    blink.duration_ms);
 
             // Blink the leds, using a separation blink if necessary
             if (blink.color == led_current_color && blink.color > 0) {
@@ -295,8 +329,8 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
                 set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
             }
             // wait interval before processing another blink
-            set_rgb_leds(led_layer_color, blink.sleep_ms > 0 ? blink.sleep_ms :
-                         CONFIG_RGBLED_WIDGET_INTERVAL_MS);
+            set_rgb_leds(led_layer_color,
+                         blink.sleep_ms > 0 ? blink.sleep_ms : CONFIG_RGBLED_WIDGET_INTERVAL_MS);
 
         } else {
             LOG_DBG("Got a layer color item from msgq, color %d", blink.color);
