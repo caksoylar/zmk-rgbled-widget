@@ -105,7 +105,7 @@ This will happen on all keyboard parts for split keyboards, so make sure to flas
 ## Battery levels for splits
 
 For split keyboards, each part will indicate its own battery level with a single battery blink, by default.
-However, for some scenarios like keyboards with dongles and no LED on the peripherals, you might want the central part to show the battery levels of peripherals too.
+However, for some scenarios like keyboards with dongles and no RGBLED widget on the peripherals, you might want the central part to show the battery levels of peripherals too.
 This can be done by enabling one of the below settings:
 
 - `CONFIG_RGBLED_WIDGET_BATTERY_SHOW_PERIPHERALS`: Blink for battery level of self and then the peripherals, in order
@@ -118,7 +118,7 @@ If a part is currently disconnected, a magenta/purple ([configurable](#configura
 ## Configuration details
 
 <details>
-<summary>General configuration options</summary>
+<summary>General</summary>
 
 | Name                               | Description                                    | Default |
 | ---------------------------------- | ---------------------------------------------- | ------- |
@@ -127,7 +127,7 @@ If a part is currently disconnected, a magenta/purple ([configurable](#configura
 </details>
 
 <details>
-<summary>Battery-related configuration options</summary>
+<summary>Battery-related</summary>
 
 | Name                                          | Description                                                           | Default       |
 | --------------------------------------------- | --------------------------------------------------------------------- | ------------- |
@@ -154,7 +154,7 @@ The non-default ones (second and third below) only work on central parts of spli
 </details>
 
 <details>
-<summary>Connectivity-related configuration options</summary>
+<summary>Connectivity-related</summary>
 
 | Name                                           | Description                                   | Default      |
 | ---------------------------------------------- | --------------------------------------------- | ------------ |
@@ -166,7 +166,7 @@ The non-default ones (second and third below) only work on central parts of spli
 </details>
 
 <details>
-<summary>Layers-related configuration options</summary>
+<summary>Layers-related</summary>
 
 Layer indicator only works on non-splits and central parts of splits.
 
