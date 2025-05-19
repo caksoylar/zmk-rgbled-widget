@@ -11,6 +11,7 @@
 #include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/events/split_peripheral_status_changed.h>
+#include <zmk/events/activity_state_changed.h>
 #include <zmk/keymap.h>
 #include <zmk/split/bluetooth/peripheral.h>
 
@@ -90,6 +91,28 @@ struct blink_item {
 
 // flag to indicate whether the initial boot up sequence is complete
 static bool initialized = false;
+
+// track current color for persistent indicators (layer color)
+uint8_t led_current_color = 0;
+
+// low-level method to control the LED
+static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
+    for (uint8_t pos = 0; pos < 3; pos++) {
+        uint8_t bit = BIT(pos);
+        if ((bit & led_current_color) != (bit & color)) {
+            // bits are different, so we need to change one
+            if (bit & color) {
+                led_on(led_dev, rgb_idx[pos]);
+            } else {
+                led_off(led_dev, rgb_idx[pos]);
+            }
+        }
+    }
+    if (duration_ms > 0) {
+        k_sleep(K_MSEC(duration_ms));
+    }
+    led_current_color = color;
+}
 
 // define message queue of blink work items, that will be processed by a
 // separate thread
@@ -245,17 +268,32 @@ void update_layer_color(void) {
 }
 
 static int led_layer_color_listener_cb(const zmk_event_t *eh) {
-    ARG_UNUSED(eh);
+    struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
 
+    // check if this is indeed an activity state changed event
+    if (ev != NULL) {
+        switch (ev->state) {
+        case ZMK_ACTIVITY_SLEEP:
+            LOG_INF("Detected sleep activity state, turn off LED");
+            set_rgb_leds(0, 0);
+            break;
+        default:  // not handling IDLE and ACTIVE yet
+            break;
+        }
+        return 0;
+    }
+
+    // it must be a layer change event instead
     if (initialized) {
         update_layer_color();
     }
     return 0;
 }
 
-// run layer_color_listener_cb on layer status change event
+// run layer_color_listener_cb on layer status change event and activity state event
 ZMK_LISTENER(led_layer_color_listener, led_layer_color_listener_cb);
 ZMK_SUBSCRIPTION(led_layer_color_listener, zmk_layer_state_changed);
+ZMK_SUBSCRIPTION(led_layer_color_listener, zmk_activity_state_changed);
 #endif // SHOW_LAYER_COLORS
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
@@ -295,26 +333,6 @@ static void indicate_layer_cb(struct k_work *work) { indicate_layer(); }
 ZMK_LISTENER(led_layer_listener, led_layer_listener_cb);
 ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);
 #endif // SHOW_LAYER_CHANGE
-
-uint8_t led_current_color = 0;
-
-static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
-    for (uint8_t pos = 0; pos < 3; pos++) {
-        uint8_t bit = BIT(pos);
-        if ((bit & led_current_color) != (bit & color)) {
-            // bits are different, so we need to change one
-            if (bit & color) {
-                led_on(led_dev, rgb_idx[pos]);
-            } else {
-                led_off(led_dev, rgb_idx[pos]);
-            }
-        }
-    }
-    if (duration_ms > 0) {
-        k_sleep(K_MSEC(duration_ms));
-    }
-    led_current_color = color;
-}
 
 extern void led_process_thread(void *d0, void *d1, void *d2) {
     ARG_UNUSED(d0);
