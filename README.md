@@ -21,6 +21,7 @@ It is used to indicate battery level and BLE connection status in a minimalist w
 ### Connection status
 
 - Blink 🔵 for connected, 🟡 for open (advertising), 🔴 for disconnected profiles on boot after the battery blink, and following every BT profile switch (only on central side for splits)
+  - Enable `CONFIG_RGBLED_WIDGET_CONN_SHOW_USB` to blink cyan whenever USB has priority over BLE, instead of above
 - Blink 🔵 for connected, 🔴 for disconnected on peripheral side of splits
 
 ### Layer state
@@ -156,12 +157,14 @@ The non-default ones (second and third below) only work on central parts of spli
 <details>
 <summary>Connectivity-related</summary>
 
-| Name                                           | Description                                   | Default      |
-| ---------------------------------------------- | --------------------------------------------- | ------------ |
-| `CONFIG_RGBLED_WIDGET_CONN_BLINK_MS`           | Duration of BLE connection status blink in ms | 1000         |
-| `CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED`    | Color for connected BLE connection status     | Blue (`4`)   |
-| `CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING`  | Color for advertising BLE connection status   | Yellow (`3`) |
-| `CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED` | Color for disconnected BLE connection status  | Red (`1`)    |
+| Name                                           | Description                                                 | Default      |
+| ---------------------------------------------- | ----------------------------------------------------------- | ------------ |
+| `CONFIG_RGBLED_WIDGET_CONN_BLINK_MS`           | Duration of BLE connection status blink in ms               | 1000         |
+| `CONFIG_RGBLED_WIDGET_CONN_SHOW_USB`           | Show USB indicator instead of BLE status if it has priority | `n`          |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED`    | Color for connected BLE connection status                   | Blue (`4`)   |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING`  | Color for advertising BLE connection status                 | Yellow (`3`) |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED` | Color for disconnected BLE connection status                | Red (`1`)    |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_USB`          | Color for USB endpoint active                               | Cyan (`6`)   |
 
 </details>
 

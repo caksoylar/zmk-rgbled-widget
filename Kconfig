@@ -86,6 +86,9 @@ config RGBLED_WIDGET_CONN_BLINK_MS
     int "Duration of BLE connection status blink in ms"
     default RGBLED_WIDGET_OUTPUT_BLINK_MS
 
+config RGBLED_WIDGET_CONN_SHOW_USB
+    bool "Show USB indicator instead of BLE status if it has priority"
+
 config RGBLED_WIDGET_OUTPUT_BLINK_MS  # DEPRECATED, do not use
     int
     default 1000
@@ -104,6 +107,11 @@ config RGBLED_WIDGET_CONN_COLOR_DISCONNECTED
     int "Color for disconnected BLE connection status"
     range 0 7
     default $(COLOR_RED)
+
+config RGBLED_WIDGET_CONN_COLOR_USB
+    int "Color for USB endpoint active"
+    range 0 7
+    default $(COLOR_CYAN)
 
 # Layer indicator settings
 config RGBLED_WIDGET_SHOW_LAYER_CHANGE

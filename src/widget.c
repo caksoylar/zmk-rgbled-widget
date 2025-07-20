@@ -9,6 +9,7 @@
 #include <zmk/endpoints.h>
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/events/ble_active_profile_changed.h>
+#include <zmk/events/endpoint_changed.h>
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/events/split_peripheral_status_changed.h>
 #include <zmk/events/activity_state_changed.h>
@@ -118,23 +119,34 @@ static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
 // separate thread
 K_MSGQ_DEFINE(led_msgq, sizeof(struct blink_item), 16, 1);
 
-#if IS_ENABLED(CONFIG_ZMK_BLE)
-void indicate_connectivity(void) {
+static void indicate_connectivity_internal(void) {
     struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_CONN_BLINK_MS};
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    uint8_t profile_index = zmk_ble_active_profile_index();
-    if (zmk_ble_active_profile_is_connected()) {
-        LOG_CONN_CENTRAL(profile_index, "connected", CONNECTED);
-        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED;
-    } else if (zmk_ble_active_profile_is_open()) {
-        LOG_CONN_CENTRAL(profile_index, "open", ADVERTISING);
-        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING;
-    } else {
-        LOG_CONN_CENTRAL(profile_index, "not connected", DISCONNECTED);
-        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED;
+    switch (zmk_endpoints_selected().transport) {
+    case ZMK_TRANSPORT_USB:
+#if IS_ENABLED(CONFIG_RGBLED_WIDGET_CONN_SHOW_USB)
+        LOG_INF("USB connected, blinking %s", color_names[CONFIG_RGBLED_WIDGET_CONN_COLOR_USB]);
+        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_USB;
+        break;
+#endif
+    default: // ZMK_TRANSPORT_BLE
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+        uint8_t profile_index = zmk_ble_active_profile_index();
+        if (zmk_ble_active_profile_is_connected()) {
+            LOG_CONN_CENTRAL(profile_index, "connected", CONNECTED);
+            blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED;
+        } else if (zmk_ble_active_profile_is_open()) {
+            LOG_CONN_CENTRAL(profile_index, "open", ADVERTISING);
+            blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING;
+        } else {
+            LOG_CONN_CENTRAL(profile_index, "not connected", DISCONNECTED);
+            blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED;
+        }
+#endif
+        break;
     }
-#else
+#elif IS_ENABLED(CONFIG_ZMK_SPLIT_BLE)
     if (zmk_split_bt_peripheral_is_connected()) {
         LOG_CONN_PERIPHERAL("connected", CONNECTED);
         blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED;
@@ -154,15 +166,22 @@ static int led_output_listener_cb(const zmk_event_t *eh) {
     return 0;
 }
 
+// debouncing to ignore all but last connectivity event, to prevent repeat blinks
+static struct k_work_delayable indicate_connectivity_work;
+static void indicate_connectivity_cb(struct k_work *work) { indicate_connectivity_internal(); }
+void indicate_connectivity() { k_work_reschedule(&indicate_connectivity_work, K_MSEC(16)); }
+
 ZMK_LISTENER(led_output_listener, led_output_listener_cb);
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-// run led_output_listener_cb on BLE profile change (on central)
+// run led_output_listener_cb on endpoint and BLE profile change (on central)
+ZMK_SUBSCRIPTION(led_output_listener, zmk_endpoint_changed);
+#if IS_ENABLED(CONFIG_ZMK_BLE)
 ZMK_SUBSCRIPTION(led_output_listener, zmk_ble_active_profile_changed);
-#else
+#endif // IS_ENABLED(CONFIG_ZMK_BLE)
+#elif IS_ENABLED(CONFIG_ZMK_SPLIT_BLE)
 // run led_output_listener_cb on peripheral status change event
 ZMK_SUBSCRIPTION(led_output_listener, zmk_split_peripheral_status_changed);
 #endif
-#endif // IS_ENABLED(CONFIG_ZMK_BLE)
 
 #if IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 static inline uint8_t get_battery_color(uint8_t battery_level) {
@@ -277,7 +296,7 @@ static int led_layer_color_listener_cb(const zmk_event_t *eh) {
             LOG_INF("Detected sleep activity state, turn off LED");
             set_rgb_leds(0, 0);
             break;
-        default:  // not handling IDLE and ACTIVE yet
+        default: // not handling IDLE and ACTIVE yet
             break;
         }
         return 0;
@@ -339,6 +358,8 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
     ARG_UNUSED(d1);
     ARG_UNUSED(d2);
 
+    k_work_init_delayable(&indicate_connectivity_work, indicate_connectivity_cb);
+
 #if SHOW_LAYER_CHANGE
     k_work_init_delayable(&layer_indicate_work, indicate_layer_cb);
 #endif
@@ -390,11 +411,9 @@ extern void led_init_thread(void *d0, void *d1, void *d2) {
     k_sleep(K_MSEC(CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS + CONFIG_RGBLED_WIDGET_INTERVAL_MS));
 #endif // IS_ENABLED(CONFIG_ZMK_BATTERY_REPORTING)
 
-#if IS_ENABLED(CONFIG_ZMK_BLE)
     // check and indicate current profile or peripheral connectivity status
     LOG_INF("Indicating initial connectivity status");
     indicate_connectivity();
-#endif // IS_ENABLED(CONFIG_ZMK_BLE)
 
 #if SHOW_LAYER_COLORS
     LOG_INF("Setting initial layer color");
