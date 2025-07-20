@@ -21,7 +21,7 @@ It is used to indicate battery level and BLE connection status in a minimalist w
 ### Connection status
 
 - Blink 🔵 for connected, 🟡 for open (advertising), 🔴 for disconnected profiles on boot after the battery blink, and following every BT profile switch (only on central side for splits)
-  - Enable `CONFIG_RGBLED_WIDGET_CONN_SHOW_USB` to blink cyan whenever USB has priority over BLE, instead of above
+  - Enable `CONFIG_RGBLED_WIDGET_CONN_SHOW_USB` to blink cyan if USB currently has priority over BLE, instead of above
 - Blink 🔵 for connected, 🔴 for disconnected on peripheral side of splits
 
 ### Layer state
