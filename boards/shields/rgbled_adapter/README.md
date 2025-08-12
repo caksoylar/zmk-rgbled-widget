@@ -7,6 +7,7 @@ Boards currently supported are:
 
 - Xiao BLE (`seeeduino_xiao_ble`)
 - nRF52840 M.2 Module (`nrf52840_m2`)
+- nRF52840 MDK USB Dongle (`nrf52840_mdk_usb_dongle`)
 - Xiao RP2040 (`seeeduino_xiao_rp2040`[^1])
 
 Please see the [module README](../../../README.md) on general usage instructions, or
