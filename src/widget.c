@@ -28,24 +28,29 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-#define LED_GPIO_NODE_ID DT_COMPAT_GET_ANY_STATUS_OKAY(gpio_leds)
 
+#if LED
+#define LED_GPIO_NODE_ID DT_COMPAT_GET_ANY_STATUS_OKAY(gpio_leds)
 BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_red)),
              "An alias for a red LED is not found for RGBLED_WIDGET");
 BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_green)),
              "An alias for a green LED is not found for RGBLED_WIDGET");
 BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_blue)),
              "An alias for a blue LED is not found for RGBLED_WIDGET");
-
-BUILD_ASSERT(!(SHOW_LAYER_CHANGE && SHOW_LAYER_COLORS),
-             "CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE and CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS "
-             "are mutually exclusive");
-
 // GPIO-based LED device and indices of red/green/blue LEDs inside its DT node
 static const struct device *led_dev = DEVICE_DT_GET(LED_GPIO_NODE_ID);
 static const uint8_t rgb_idx[] = {DT_NODE_CHILD_IDX(DT_ALIAS(led_red)),
                                   DT_NODE_CHILD_IDX(DT_ALIAS(led_green)),
                                   DT_NODE_CHILD_IDX(DT_ALIAS(led_blue))};
+#endif
+
+
+
+BUILD_ASSERT(!(SHOW_LAYER_CHANGE && SHOW_LAYER_COLORS),
+             "CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE and CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS "
+             "are mutually exclusive");
+
+
 
 // map from color values to names, for logging
 static const char *color_names[] = {"black", "red",     "green", "yellow",
@@ -97,6 +102,51 @@ static bool initialized = false;
 uint8_t led_current_color = 0;
 
 // low-level method to control the LED
+#if IS_ENABLED(CONFIG_RGBLED_WIDGET_WS2812)
+#   include <zephyr/drivers/led_strip.h>
+
+#   define STRIP_CHOSEN DT_CHOSEN(widget_rgb)
+#   define WS2812_NODE DT_ALIAS(status_ws2812)
+#   define RGB_NODE_ID DT_COMPAT_GET_ANY_STATUS_OKAY(worldsemi_ws2812_spi)
+/*
+Example Device Tree overlay for WS2812 LED strip:
+
+//show use led strip
+
+Replace <YOUR_GPIO_PIN> with the actual GPIO pin number connected to the WS2812 data line.
+*/
+BUILD_ASSERT(DT_NODE_EXISTS(WS2812_NODE),
+             "An alias status-ws2812 for a ws2812 node is not found for RGBLED_WIDGET");
+
+BUILD_ASSERT(DT_NODE_HAS_STATUS(WS2812_NODE, okay),
+             "An alias status-ws2812 for a ws2812 node is not found for RGBLED_WIDGET");
+
+// BUILD_ASSERT(DT_NUM_INST_STATUS_OKAY(worldsemi_ws2812-spi) > 0,
+//              "An device for a ws2812 node is not found for RGBLED_WIDGET");
+
+static const struct device *ws2812_dev = DEVICE_DT_GET(WS2812_NODE);
+
+static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
+    struct led_rgb colors[1] = {0};
+    // Map color index to RGB values
+    switch (color) {
+    case 0: colors[0] = (struct led_rgb){0, 0, 0}; break;         // black
+    case 1: colors[0] = (struct led_rgb){255, 0, 0}; break;       // red
+    case 2: colors[0] = (struct led_rgb){0, 255, 0}; break;       // green
+    case 3: colors[0] = (struct led_rgb){255, 255, 0}; break;     // yellow
+    case 4: colors[0] = (struct led_rgb){0, 0, 255}; break;       // blue
+    case 5: colors[0] = (struct led_rgb){255, 0, 255}; break;     // magenta
+    case 6: colors[0] = (struct led_rgb){0, 255, 255}; break;     // cyan
+    case 7: colors[0] = (struct led_rgb){255, 255, 255}; break;   // white
+    default: colors[0] = (struct led_rgb){0, 0, 0}; break;
+    }
+    led_strip_update_rgb(ws2812_dev, colors, ARRAY_SIZE(colors));
+    if (duration_ms > 0) {
+        k_sleep(K_MSEC(duration_ms));
+    }
+    led_current_color = color;
+}
+#else
 static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
     for (uint8_t pos = 0; pos < 3; pos++) {
         uint8_t bit = BIT(pos);
@@ -114,6 +164,7 @@ static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
     }
     led_current_color = color;
 }
+#endif
 
 // define message queue of blink work items, that will be processed by a
 // separate thread

@@ -16,6 +16,10 @@ if RGBLED_WIDGET
 config LED
     default y
 
+config RGBLED_WIDGET_WS2812
+    bool "use ws2812 instead of led"
+    default n
+
 config RGBLED_WIDGET_INTERVAL_MS
     int "Minimum wait duration between two blinks in ms"
     default 500
