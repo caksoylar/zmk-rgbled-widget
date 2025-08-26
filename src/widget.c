@@ -4,6 +4,7 @@
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <math.h>
+#include <errno.h>
 
 // Define M_PI if not available in embedded environment
 #ifndef M_PI
@@ -497,7 +498,7 @@ static int indicate_battery_enhanced(void) {
     return ret;
 }
 
-static int indicate_connectivity_enhanced(void) {
+static int indicate_connectivity_ws2812(void) {
     uint8_t color_idx = 0;
     struct animation_state pattern = {0};
     pattern.type = ANIM_STATIC;
@@ -837,7 +838,7 @@ int ws2812_indicate_battery_enhanced(void) {
 }
 
 int ws2812_indicate_connectivity_enhanced(void) {
-    return indicate_connectivity_enhanced();
+    return indicate_connectivity_ws2812();
 }
 
 int ws2812_indicate_layer_enhanced(bool use_shared) {
@@ -892,7 +893,7 @@ K_MSGQ_DEFINE(led_msgq, sizeof(struct blink_item), 16, 1);
 static void indicate_connectivity_internal(void) {
 #if IS_ENABLED(CONFIG_RGBLED_WIDGET_WS2812)
     // Use enhanced connectivity indication for WS2812
-    indicate_connectivity_enhanced();
+    indicate_connectivity_ws2812();
     return;
 #else
     // Original implementation for GPIO LEDs and simple WS2812
@@ -1170,9 +1171,9 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
 
     while (true) {
         // wait until a blink item is received and process it
-        struct blink_item blink;
-        k_msgq_get(&led_msgq, &blink, K_MSEC(100)); // Non-blocking with timeout for animations
-        
+        struct blink_item blink = {-1, -1, -1};
+        int result_code = k_msgq_get(&led_msgq, &blink, K_MSEC(100)); // Non-blocking with timeout for animations
+
 #if IS_ENABLED(CONFIG_RGBLED_WIDGET_WS2812)
         // Check for expired shared LED timeouts
         check_shared_led_timeouts();
@@ -1182,26 +1183,33 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
         update_all_animations();
 #endif
 #endif
-        
-        if (blink.duration_ms > 0) {
-            LOG_DBG("Got a blink item from msgq, color %d, duration %d", blink.color,
-                    blink.duration_ms);
+        if (result_code != ENOMSG) {
+            if (blink.duration_ms > 0) {
+                LOG_DBG("Got a blink item from msgq, color %d, duration %d", blink.color,
+                        blink.duration_ms);
 
-            // Blink the leds, using a separation blink if necessary
-            if (blink.color == led_current_color && blink.color > 0) {
-                set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
-            }
-            set_rgb_leds(blink.color, blink.duration_ms);
-            if (blink.color == led_layer_color && blink.color > 0) {
-                set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
-            }
-            // wait interval before processing another blink
-            set_rgb_leds(led_layer_color,
-                         blink.sleep_ms > 0 ? blink.sleep_ms : CONFIG_RGBLED_WIDGET_INTERVAL_MS);
+                // Blink the leds, using a separation blink if necessary
+                if (blink.color == led_current_color && blink.color > 0) {
+                    set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
+                }
 
-        } else {
-            // LOG_DBG("Got a layer color item from msgq, color %d", blink.color);
-            // set_rgb_leds(blink.color, 0);
+                set_rgb_leds(blink.color, blink.duration_ms);
+
+                #if SHOW_LAYER_CHANGE
+                if (blink.color == led_layer_color && blink.color > 0) {
+                    set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
+                }
+
+                // wait interval before processing another blink
+                set_rgb_leds(led_layer_color,
+                            blink.sleep_ms > 0 ? blink.sleep_ms : CONFIG_RGBLED_WIDGET_INTERVAL_MS);
+                #endif
+
+            } else {
+                LOG_DBG("Got a fix color item from msgq, color %d", blink.color);
+                set_rgb_leds(blink.color, 0);
+            }
+            // timeout
         }
     }
 }
