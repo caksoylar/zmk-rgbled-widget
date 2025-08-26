@@ -728,8 +728,11 @@ static bool can_share_led(uint8_t led_index, uint8_t new_priority) {
         return false;
     }
     
+
+    // FIXME can not update same status since their priority is equals
+
     // Higher priority can override lower priority
-    if (new_priority < state->priority) {
+    if (new_priority <= state->priority) {
         return true;
     }
     
@@ -773,7 +776,7 @@ static int set_led_with_sharing(uint8_t led_index, uint8_t color_idx, uint8_t pr
     // Set the LED color
     ws2812_set_led(led_index, color_idx);
     
-    LOG_DBG("Set LED %d to color %d (priority %d, shared %s)", 
+    LOG_DBG("Set LED %d to color %d (priority %d, is_shared %s)", 
             led_index, color_idx, priority, state->is_shared ? "yes" : "no");
     
     return 0;
@@ -1047,6 +1050,8 @@ static int led_battery_listener_cb(const zmk_event_t *eh) {
 
         struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_BATTERY_BLINK_MS,
                                    .color = CONFIG_RGBLED_WIDGET_BATTERY_COLOR_CRITICAL};
+        LOG_DBG("send a battery blink item from msgq, color %d, duration %d, bat level %d", blink.color,
+                    blink.duration_ms, battery_level);
         k_msgq_put(&led_msgq, &blink, K_NO_WAIT);
     }
     return 0;
@@ -1166,7 +1171,7 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
     while (true) {
         // wait until a blink item is received and process it
         struct blink_item blink;
-        k_msgq_get(&led_msgq, &blink, K_MSEC(50)); // Non-blocking with timeout for animations
+        k_msgq_get(&led_msgq, &blink, K_MSEC(100)); // Non-blocking with timeout for animations
         
 #if IS_ENABLED(CONFIG_RGBLED_WIDGET_WS2812)
         // Check for expired shared LED timeouts
@@ -1195,8 +1200,8 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
                          blink.sleep_ms > 0 ? blink.sleep_ms : CONFIG_RGBLED_WIDGET_INTERVAL_MS);
 
         } else {
-            LOG_DBG("Got a layer color item from msgq, color %d", blink.color);
-            set_rgb_leds(blink.color, 0);
+            // LOG_DBG("Got a layer color item from msgq, color %d", blink.color);
+            // set_rgb_leds(blink.color, 0);
         }
     }
 }
