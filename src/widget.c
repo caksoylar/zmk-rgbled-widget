@@ -168,7 +168,6 @@ uint8_t led_current_color = 0;
 // low-level method to control the LED
 #if IS_ENABLED(CONFIG_RGBLED_WIDGET_WS2812)
 
-#   define STRIP_CHOSEN DT_CHOSEN(widget_rgb)
 #   define WS2812_NODE DT_ALIAS(status_ws2812)
 #   define RGB_NODE_ID DT_COMPAT_GET_ANY_STATUS_OKAY(worldsemi_ws2812_spi)
 /*
@@ -199,7 +198,7 @@ static const struct device *ws2812_dev = DEVICE_DT_GET(WS2812_NODE);
 #define CONFIG_RGBLED_WIDGET_CONN_LED_INDEX 1
 #endif
 #ifndef CONFIG_RGBLED_WIDGET_LAYER_LED_INDEX
-#define CONFIG_RGBLED_WIDGET_LAYER_LED_INDEX 2
+#define CONFIG_RGBLED_WIDGET_LAYER_LED_INDEX 1
 #endif
 
 // LED sharing configuration
@@ -207,7 +206,7 @@ static const struct device *ws2812_dev = DEVICE_DT_GET(WS2812_NODE);
 #define CONFIG_RGBLED_WIDGET_SHARE_TIMEOUT_MS 500
 #endif
 #ifndef CONFIG_RGBLED_WIDGET_BRIGHTNESS
-#define CONFIG_RGBLED_WIDGET_BRIGHTNESS 128
+#define CONFIG_RGBLED_WIDGET_BRIGHTNESS 64
 #endif
 
 // Global LED state array
@@ -515,20 +514,20 @@ static int indicate_connectivity_ws2812(void) {
 #if IS_ENABLED(CONFIG_ZMK_BLE)
         if (zmk_ble_active_profile_is_connected()) {
             color_idx = CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED;
-            LOG_INF("Enhanced BLE connected indication");
+            LOG_INF("BLE connected indication");
         } else if (zmk_ble_active_profile_is_open()) {
             color_idx = CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING;
             pattern.type = ANIM_PULSE;
             pattern.period_ms = 2000;
             pattern.start_color = color_idx;
-            LOG_INF("Enhanced BLE advertising indication");
+            LOG_INF("BLE advertising indication");
         } else {
             color_idx = CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED;
             pattern.type = ANIM_BLINK;
             pattern.period_ms = 1000;
             pattern.start_color = color_idx;
             pattern.end_color = 0;
-            LOG_INF("Enhanced BLE disconnected indication");
+            LOG_INF("BLE disconnected indication");
         }
 #endif
         break;
@@ -647,20 +646,40 @@ static void ws2812_strip_init(void) {
     LOG_INF("WS2812 strip initialized with %d LEDs", CONFIG_RGBLED_WIDGET_LED_COUNT);
 }
 
+
 static void color_index_to_rgb(uint8_t color_idx, struct led_rgb *rgb) {
+#if IS_ENABLED(CONFIG_LED_STRIP_RGB_SCRATCH)
+    static const struct led_rgb lut[] = {
+        {0, 0, 0, 0},  // 0: off
+        {0, 1, 0, 0},  // 1: red
+        {0, 0, 1, 0},  // 2: green
+        {0, 1, 1, 0},  // 3: yellow
+        {0, 0, 0, 1},  // 4: blue
+        {0, 1, 0, 1},  // 5: magenta
+        {0, 0, 1, 1},  // 6: cyan
+        {0, 1, 1, 1},  // 7: white
+    };
+#else
+    static const struct led_rgb lut[] = {
+        {0, 0, 0},  // 0: off
+        {1, 0, 0},  // 1: red
+        {0, 1, 0},  // 2: green
+        {1, 1, 0},  // 3: yellow
+        {0, 0, 1},  // 4: blue
+        {1, 0, 1},  // 5: magenta
+        {0, 1, 1},  // 6: cyan
+        {1, 1, 1},  // 7: white
+    };
+#endif
     uint8_t brightness = CONFIG_RGBLED_WIDGET_BRIGHTNESS;
-    
-    switch (color_idx) {
-    case 0: *rgb = (struct led_rgb){0, 0, 0}; break;                                    // black
-    case 1: *rgb = (struct led_rgb){brightness, 0, 0}; break;                          // red
-    case 2: *rgb = (struct led_rgb){0, brightness, 0}; break;                          // green
-    case 3: *rgb = (struct led_rgb){brightness, brightness, 0}; break;                 // yellow
-    case 4: *rgb = (struct led_rgb){0, 0, brightness}; break;                          // blue
-    case 5: *rgb = (struct led_rgb){brightness, 0, brightness}; break;                 // magenta
-    case 6: *rgb = (struct led_rgb){0, brightness, brightness}; break;                 // cyan
-    case 7: *rgb = (struct led_rgb){brightness, brightness, brightness}; break;        // white
-    default: *rgb = (struct led_rgb){0, 0, 0}; break;
+    struct led_rgb tmp = {0};
+
+    if (color_idx < ARRAY_SIZE(lut)) {
+        tmp.r = lut[color_idx].r * brightness;
+        tmp.g = lut[color_idx].g * brightness;
+        tmp.b = lut[color_idx].b * brightness;
     }
+    *rgb = tmp;
 }
 
 static int ws2812_set_led(uint8_t led_index, uint8_t color_idx) {
@@ -1179,9 +1198,9 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
         check_shared_led_timeouts();
         
         // Update animations
-#if IS_ENABLED(CONFIG_RGBLED_WIDGET_ANIMATIONS)
+#   if IS_ENABLED(CONFIG_RGBLED_WIDGET_ANIMATIONS)
         update_all_animations();
-#endif
+#   endif
 #endif
         if (result_code != ENOMSG) {
             if (blink.duration_ms > 0) {
