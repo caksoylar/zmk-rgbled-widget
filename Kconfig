@@ -13,8 +13,111 @@ config RGBLED_WIDGET
 
 if RGBLED_WIDGET
 
-config LED
+config RGBLED_WIDGET_WS2812
+    bool "Use WS2812 addressable LEDs instead of GPIO LEDs"
+    default n
+    help
+      Enable WS2812 (NeoPixel) addressable LED support with multi-LED
+      capabilities, spatial mapping, animations, and LED sharing.
+      When disabled, the original GPIO LED implementation is used.
+
+if RGBLED_WIDGET_WS2812
+
+config LED_STRIP
     default y
+    
+config WS2812_STRIP
+    default y
+
+config RGBLED_WIDGET_LED_COUNT
+    int "Number of LEDs in the strip"
+    range 1 4
+    default 2
+    help
+      Number of addressable LEDs in the WS2812 strip. Maximum 4 LEDs
+      are supported for optimal performance and memory usage.
+
+config RGBLED_WIDGET_SPATIAL_MAPPING
+    bool "Enable spatial status mapping"
+    default y
+    help
+      Enable mapping different status types to specific LED positions
+      in the strip for clearer visual indication.
+
+config RGBLED_WIDGET_ANIMATIONS
+    bool "Enable advanced animations and patterns"
+    default y
+    help
+      Enable advanced LED patterns like pulse, breathing, and smooth
+      color transitions for enhanced visual feedback.
+
+config RGBLED_WIDGET_LED_SHARING
+    bool "Enable LED sharing for multi-function display"
+    default y
+    help
+      Allow layer indication to temporarily use battery or connectivity LEDs
+      when dedicated layer LED is not available or for enhanced visibility.
+
+config RGBLED_WIDGET_SHARE_TIMEOUT_MS
+    int "LED sharing timeout in milliseconds"
+    range 100 5000
+    default 500
+    depends on RGBLED_WIDGET_LED_SHARING
+    help
+      Duration for which a shared LED displays layer status before
+      returning to its primary function.
+
+config RGBLED_WIDGET_BRIGHTNESS
+    int "Default LED brightness (0-255)"
+    range 0 255
+    default 128
+    help
+      Default brightness level for WS2812 LEDs. Lower values reduce
+      power consumption and eye strain.
+
+# LED Mapping Configuration
+config RGBLED_WIDGET_BATTERY_LED_INDEX
+    int "LED index for battery status"
+    range 0 3
+    default 0
+    depends on RGBLED_WIDGET_SPATIAL_MAPPING
+    help
+      Which LED in the strip displays battery status (0-based index).
+
+config RGBLED_WIDGET_CONN_LED_INDEX
+    int "LED index for connectivity status"
+    range 0 3
+    default 1
+    depends on RGBLED_WIDGET_SPATIAL_MAPPING
+    help
+      Which LED in the strip displays connectivity status (0-based index).
+
+config RGBLED_WIDGET_LAYER_LED_INDEX
+    int "LED index for layer status"
+    range 0 3
+    default 2
+    depends on RGBLED_WIDGET_SPATIAL_MAPPING
+    help
+      Which LED in the strip displays layer status (0-based index).
+      If this LED index is >= LED_COUNT, layer sharing will be used.
+
+config RGBLED_WIDGET_LAYER_SHARE_BATTERY
+    bool "Allow layer indication to share battery LED"
+    default y
+    depends on RGBLED_WIDGET_LED_SHARING
+    help
+      Allow layer changes to temporarily override the battery LED
+      when dedicated layer LED is not available.
+
+config RGBLED_WIDGET_LAYER_SHARE_CONN
+    bool "Allow layer indication to share connectivity LED"
+    default y
+    depends on RGBLED_WIDGET_LED_SHARING
+    help
+      Allow layer changes to temporarily override the connectivity LED
+      when dedicated layer LED is not available.
+
+endif # RGBLED_WIDGET_WS2812
 
 config RGBLED_WIDGET_INTERVAL_MS
     int "Minimum wait duration between two blinks in ms"
