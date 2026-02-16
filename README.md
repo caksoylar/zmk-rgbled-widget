@@ -39,23 +39,21 @@ These layer indicators will only be active on the central part of a split keyboa
 
 ## Installation
 
-To use, first add this module to your `config/west.yml` by adding a new entry to `remotes` and `projects`:
+To use, first add this module to your `config/west.yml` by adding a new entry to `projects`:
 
 ```yaml west.yml
 manifest:
   remotes:
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
-    - name: caksoylar  # <-- new entry
-      url-base: https://github.com/caksoylar
   projects:
     - name: zmk
       remote: zmkfirmware
-      revision: main
+      revision: v0.3           # Your ZMK version
       import: app/west.yml
     - name: zmk-rgbled-widget  # <-- new entry
-      remote: caksoylar
-      revision: main
+      url: https://github.com/caksoylar/zmk-rgbled-widget
+      revision: v0.3           # MUST match your ZMK version!
   self:
     path: config
 ```
