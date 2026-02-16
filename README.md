@@ -1,5 +1,11 @@
 # LED indicators using an RGB LED
 
+> [!IMPORTANT]
+> This module uses a versioning scheme that is compatible with ZMK versions.
+> As a general rule, the `main` branch is targeting compatibility with ZMK's `main`.
+>
+> **If you have build failures with ZMK's latest release (like `v0.3`) make sure to [use the corresponding revision](#installation) for `zmk-rgbled-widget` in your `west.yml`**.
+
 This is a [ZMK module](https://zmk.dev/docs/features/modules) containing a simple widget that utilizes a (typically built-in) RGB LED controlled by three separate GPIOs.
 It is used to indicate battery level and BLE connection status in a minimalist way.
 
