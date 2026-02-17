@@ -123,27 +123,34 @@ static void indicate_connectivity_internal(void) {
     struct blink_item blink = {.duration_ms = CONFIG_RGBLED_WIDGET_CONN_BLINK_MS};
 
 #if !IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    switch (zmk_endpoints_selected().transport) {
-    case ZMK_TRANSPORT_USB:
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+    uint8_t profile_index = zmk_ble_active_profile_index();
+#endif
+
+    switch (zmk_endpoint_get_selected().transport) {
+    case ZMK_TRANSPORT_USB: // USB connected and selected
 #if IS_ENABLED(CONFIG_RGBLED_WIDGET_CONN_SHOW_USB)
         LOG_INF("USB connected, blinking %s", color_names[CONFIG_RGBLED_WIDGET_CONN_COLOR_USB]);
         blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_USB;
         break;
 #endif
-    default: // ZMK_TRANSPORT_BLE
+    case ZMK_TRANSPORT_BLE: // BLE connected and selected
 #if IS_ENABLED(CONFIG_ZMK_BLE)
-        uint8_t profile_index = zmk_ble_active_profile_index();
-        if (zmk_ble_active_profile_is_connected()) {
-            LOG_CONN_CENTRAL(profile_index, "connected", CONNECTED);
-            blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED;
-        } else if (zmk_ble_active_profile_is_open()) {
+        LOG_CONN_CENTRAL(profile_index, "connected", CONNECTED);
+        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_CONNECTED;
+        break;
+#endif
+    default: // ZMK_TRANSPORT_NONE, neither BLE nor USB connected
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+        if (zmk_endpoint_get_preferred_transport() != ZMK_TRANSPORT_NONE &&
+            zmk_ble_active_profile_is_open()) {
             LOG_CONN_CENTRAL(profile_index, "open", ADVERTISING);
             blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING;
-        } else {
-            LOG_CONN_CENTRAL(profile_index, "not connected", DISCONNECTED);
-            blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED;
+            break;
         }
 #endif
+        LOG_CONN_CENTRAL(-1, "no endpoints connected", DISCONNECTED);
+        blink.color = CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED;
         break;
     }
 #elif IS_ENABLED(CONFIG_ZMK_SPLIT_BLE)
