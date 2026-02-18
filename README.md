@@ -72,7 +72,7 @@ just add the `rgbled_adapter` as an additional shield to your build, e.g. in `bu
 ```yaml build.yaml
 ---
 include:
-  - board: seeeduino_xiao_ble
+  - board: xiao_ble//zmk
     shield: hummingbird rgbled_adapter
 ```
 
