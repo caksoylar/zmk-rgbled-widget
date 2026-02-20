@@ -1,0 +1,38 @@
+description: Enhanced WS2812 RGB LED widget behavior with multi-LED support
+
+compatible: "zmk,behavior-ws2812-widget"
+
+include: zero_param.yaml
+
+properties:
+  indicate-battery:
+    type: boolean
+    description: "Trigger enhanced battery status indication"
+    
+  indicate-connectivity:
+    type: boolean
+    description: "Trigger enhanced connectivity status indication"
+    
+  indicate-layer:
+    type: boolean
+    description: "Trigger enhanced layer status indication with sharing support"
+    
+  led-index:
+    type: int
+    description: "Target LED index for manual control (0-3)"
+    
+  pattern-id:
+    type: int
+    description: "Animation pattern ID (0=static, 1=blink, 2=pulse, 3=fade)"
+    
+  duration-ms:
+    type: int
+    description: "Effect duration in milliseconds (0 = persistent)"
+    
+  use-shared:
+    type: boolean
+    description: "Allow using shared LEDs for layer indication"
+    
+  color:
+    type: int
+    description: "Color index (0=black, 1=red, 2=green, 3=yellow, 4=blue, 5=magenta, 6=cyan, 7=white)"
