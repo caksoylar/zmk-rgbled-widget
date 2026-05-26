@@ -82,8 +82,8 @@ static const uint8_t layer_color_idx[] = {
 // a blink work item as specified by the color and duration
 struct blink_item {
     uint8_t color;
-    uint16_t duration_ms;
-    uint16_t sleep_ms;
+    uint32_t duration_ms;
+    uint32_t sleep_ms;
 };
 
 // flag to indicate whether the initial boot up sequence is complete
@@ -93,7 +93,7 @@ static bool initialized = false;
 uint8_t led_current_color = 0;
 
 // low-level method to control the LED
-static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
+static void set_rgb_leds(uint8_t color, uint32_t duration_ms) {
     for (uint8_t pos = 0; pos < 3; pos++) {
         uint8_t bit = BIT(pos);
         if ((bit & led_current_color) != (bit & color)) {
