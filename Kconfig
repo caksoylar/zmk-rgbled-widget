@@ -20,6 +20,11 @@ config RGBLED_WIDGET_INTERVAL_MS
     int "Minimum wait duration between two blinks in ms"
     default 500
 
+config RGBLED_WIDGET_BRIGHTNESS
+    int "Brightness percentage for RGB LED widget"
+    range 0 100
+    default 100
+
 # Battery level settings
 
 choice RGBLED_WIDGET_BATTERY_SHOW

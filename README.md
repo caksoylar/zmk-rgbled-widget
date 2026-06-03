@@ -3,7 +3,22 @@
 This is a [ZMK module](https://zmk.dev/docs/features/modules) containing a simple widget that utilizes a (typically built-in) RGB LED controlled by three separate GPIOs.
 It is used to indicate battery level and BLE connection status in a minimalist way.
 
+This repository is a fork of the original [caksoylar/zmk-rgbled-widget](https://github.com/caksoylar/zmk-rgbled-widget).
+The fork used here is [yawatajunk/zmk-rgbled-widget](https://github.com/yawatajunk/zmk-rgbled-widget), which keeps the original functionality and adds PWM LED dimming support for boards using `pwm-leds`.
+
+## Fork and License
+
+- Original project: [caksoylar/zmk-rgbled-widget](https://github.com/caksoylar/zmk-rgbled-widget)
+- Fork used by this setup: [yawatajunk/zmk-rgbled-widget](https://github.com/yawatajunk/zmk-rgbled-widget)
+- License: MIT
+
+This fork is distributed under the same MIT license as the original project. When redistributing or modifying this module, keep the original copyright notice and MIT license text included in this repository's [LICENSE](LICENSE).
+
 ## Features
+
+- Supports the original GPIO-based RGB LED setup using `gpio-leds`
+- Supports PWM-based RGB LED setup using `pwm-leds`
+- Adds configurable widget brightness using `CONFIG_RGBLED_WIDGET_BRIGHTNESS`
 
 <details>
   <summary>Short video demo</summary>
@@ -52,7 +67,7 @@ manifest:
       revision: v0.3           # Your ZMK version
       import: app/west.yml
     - name: zmk-rgbled-widget  # <-- new entry
-      url: https://github.com/caksoylar/zmk-rgbled-widget
+      url: https://github.com/yawatajunk/zmk-rgbled-widget
       revision: v0.3           # MUST match your ZMK version!
   self:
     path: config
@@ -122,6 +137,7 @@ If a part is currently disconnected, a magenta/purple ([configurable](#configura
 | Name                               | Description                                    | Default |
 | ---------------------------------- | ---------------------------------------------- | ------- |
 | `CONFIG_RGBLED_WIDGET_INTERVAL_MS` | Minimum wait duration between two blinks in ms | 500     |
+| `CONFIG_RGBLED_WIDGET_BRIGHTNESS`  | Brightness percentage used for `pwm-leds`      | 100     |
 
 </details>
 
@@ -218,9 +234,16 @@ You can add these settings to your keyboard conf file to modify the config value
 
 ```ini
 CONFIG_RGBLED_WIDGET_INTERVAL_MS=250
+CONFIG_RGBLED_WIDGET_BRIGHTNESS=25
 CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH=50
 CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL=10
 ```
+
+When using the PWM-enabled fork, `CONFIG_RGBLED_WIDGET_BRIGHTNESS` is the main brightness control in your `.conf` file. Typical values are:
+
+- `10` to `20`: very dim
+- `25` to `40`: moderate brightness
+- `100`: maximum brightness
 
 ## Adding support in custom boards/shields
 
@@ -254,6 +277,87 @@ As an example, here is a definition for three LEDs connected to VCC and separate
 ```
 
 (If the LEDs are wired between GPIO and GND instead, use `GPIO_ACTIVE_HIGH` flag.)
+
+### PWM LED support
+
+This fork also supports PWM-controlled RGB LEDs through `pwm-leds`.
+Use this when your board exposes the RGB LED channels through a PWM controller and you want adjustable brightness.
+
+In this setup, the `.conf` file enables the PWM drivers and sets the widget brightness, while the board or shield `.overlay`/`.dtsi` defines the PWM pins and LED nodes.
+
+Example `.conf` settings:
+
+```ini
+CONFIG_PWM=y
+CONFIG_LED_PWM=y
+CONFIG_RGBLED_WIDGET=y
+CONFIG_RGBLED_WIDGET_BRIGHTNESS=25
+```
+
+Example devicetree setup:
+
+```dts
+#include <dt-bindings/pinctrl/nrf-pinctrl.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+  aliases {
+    led-red = &red_pwm_led;
+    led-green = &green_pwm_led;
+    led-blue = &blue_pwm_led;
+  };
+};
+
+&pinctrl {
+  pwm0_default: pwm0_default {
+    group1 {
+      psels = <NRF_PSEL(PWM_OUT0, 0, 26)>, <NRF_PSEL(PWM_OUT1, 0, 30)>,
+          <NRF_PSEL(PWM_OUT2, 0, 6)>;
+    };
+  };
+
+  pwm0_sleep: pwm0_sleep {
+    group1 {
+      psels = <NRF_PSEL(PWM_OUT0, 0, 26)>, <NRF_PSEL(PWM_OUT1, 0, 30)>,
+          <NRF_PSEL(PWM_OUT2, 0, 6)>;
+      low-power-enable;
+    };
+  };
+};
+
+&pwm0 {
+  status = "okay";
+  pinctrl-0 = <&pwm0_default>;
+  pinctrl-1 = <&pwm0_sleep>;
+  pinctrl-names = "default", "sleep";
+};
+
+/ {
+  pwm_leds {
+    compatible = "pwm-leds";
+    status = "okay";
+
+    red_pwm_led: red_pwm_led {
+      pwms = <&pwm0 0 PWM_MSEC(10) PWM_POLARITY_INVERTED>;
+    };
+
+    green_pwm_led: green_pwm_led {
+      pwms = <&pwm0 1 PWM_MSEC(10) PWM_POLARITY_INVERTED>;
+    };
+
+    blue_pwm_led: blue_pwm_led {
+      pwms = <&pwm0 2 PWM_MSEC(10) PWM_POLARITY_INVERTED>;
+    };
+  };
+};
+```
+
+Notes for PWM setups:
+
+- `CONFIG_RGBLED_WIDGET_BRIGHTNESS` controls runtime brightness for all widget indications.
+- `CONFIG_PWM=y` and `CONFIG_LED_PWM=y` must be enabled in the `.conf` file.
+- The `overlay` or `.dtsi` file must define the PWM pinctrl, enable the PWM controller, and expose `led-red`, `led-green`, and `led-blue` aliases.
+- If the RGB LED is wired as active-low, use `PWM_POLARITY_INVERTED`; otherwise use `PWM_POLARITY_NORMAL`.
 
 Finally, turn on the widget in the configuration:
 

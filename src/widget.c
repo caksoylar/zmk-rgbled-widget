@@ -28,24 +28,30 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-#define LED_GPIO_NODE_ID DT_COMPAT_GET_ANY_STATUS_OKAY(gpio_leds)
+#define LED_RED_NODE DT_ALIAS(led_red)
+#define LED_GREEN_NODE DT_ALIAS(led_green)
+#define LED_BLUE_NODE DT_ALIAS(led_blue)
+#define LED_NODE_ID DT_PARENT(LED_RED_NODE)
+#define LED_SUPPORTS_BRIGHTNESS DT_NODE_HAS_COMPAT(LED_NODE_ID, pwm_leds)
 
-BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_red)),
+BUILD_ASSERT(DT_NODE_EXISTS(LED_RED_NODE),
              "An alias for a red LED is not found for RGBLED_WIDGET");
-BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_green)),
+BUILD_ASSERT(DT_NODE_EXISTS(LED_GREEN_NODE),
              "An alias for a green LED is not found for RGBLED_WIDGET");
-BUILD_ASSERT(DT_NODE_EXISTS(DT_ALIAS(led_blue)),
+BUILD_ASSERT(DT_NODE_EXISTS(LED_BLUE_NODE),
              "An alias for a blue LED is not found for RGBLED_WIDGET");
+BUILD_ASSERT(DT_SAME_NODE(DT_PARENT(LED_RED_NODE), DT_PARENT(LED_GREEN_NODE)) &&
+             DT_SAME_NODE(DT_PARENT(LED_RED_NODE), DT_PARENT(LED_BLUE_NODE)),
+         "RGBLED_WIDGET aliases must point to LEDs under the same parent device");
 
 BUILD_ASSERT(!(SHOW_LAYER_CHANGE && SHOW_LAYER_COLORS),
              "CONFIG_RGBLED_WIDGET_SHOW_LAYER_CHANGE and CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS "
              "are mutually exclusive");
 
-// GPIO-based LED device and indices of red/green/blue LEDs inside its DT node
-static const struct device *led_dev = DEVICE_DT_GET(LED_GPIO_NODE_ID);
-static const uint8_t rgb_idx[] = {DT_NODE_CHILD_IDX(DT_ALIAS(led_red)),
-                                  DT_NODE_CHILD_IDX(DT_ALIAS(led_green)),
-                                  DT_NODE_CHILD_IDX(DT_ALIAS(led_blue))};
+// LED device and indices of red/green/blue LEDs inside its DT node
+static const struct device *led_dev = DEVICE_DT_GET(LED_NODE_ID);
+static const uint8_t rgb_idx[] = {DT_NODE_CHILD_IDX(LED_RED_NODE), DT_NODE_CHILD_IDX(LED_GREEN_NODE),
+                  DT_NODE_CHILD_IDX(LED_BLUE_NODE)};
 
 // map from color values to names, for logging
 static const char *color_names[] = {"black", "red",     "green", "yellow",
@@ -101,12 +107,21 @@ static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
     for (uint8_t pos = 0; pos < 3; pos++) {
         uint8_t bit = BIT(pos);
         if ((bit & led_current_color) != (bit & color)) {
+#if LED_SUPPORTS_BRIGHTNESS
+            int rc = led_set_brightness(led_dev, rgb_idx[pos],
+                                        (bit & color) ? CONFIG_RGBLED_WIDGET_BRIGHTNESS : 0);
+
+            if (rc < 0) {
+                LOG_ERR("Failed to set LED %d brightness: %d", rgb_idx[pos], rc);
+            }
+#else
             // bits are different, so we need to change one
             if (bit & color) {
                 led_on(led_dev, rgb_idx[pos]);
             } else {
                 led_off(led_dev, rgb_idx[pos]);
             }
+#endif
         }
     }
     if (duration_ms > 0) {
