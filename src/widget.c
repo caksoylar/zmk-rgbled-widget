@@ -104,30 +104,32 @@ uint8_t led_current_color = 0;
 
 // low-level method to control the LED
 static void set_rgb_leds(uint8_t color, uint16_t duration_ms) {
+    bool ok = true;
     for (uint8_t pos = 0; pos < 3; pos++) {
         uint8_t bit = BIT(pos);
-        if ((bit & led_current_color) != (bit & color)) {
 #if LED_SUPPORTS_BRIGHTNESS
-            int rc = led_set_brightness(led_dev, rgb_idx[pos],
-                                        (bit & color) ? CONFIG_RGBLED_WIDGET_BRIGHTNESS : 0);
+        int rc = led_set_brightness(led_dev, rgb_idx[pos],
+                                    (bit & color) ? CONFIG_RGBLED_WIDGET_BRIGHTNESS : 0);
 
-            if (rc < 0) {
-                LOG_ERR("Failed to set LED %d brightness: %d", rgb_idx[pos], rc);
-            }
-#else
-            // bits are different, so we need to change one
-            if (bit & color) {
-                led_on(led_dev, rgb_idx[pos]);
-            } else {
-                led_off(led_dev, rgb_idx[pos]);
-            }
-#endif
+        if (rc < 0) {
+            ok = false;
+            LOG_ERR("Failed to set LED %d brightness: %d", rgb_idx[pos], rc);
         }
+#else
+        int rc = (bit & color) ? led_on(led_dev, rgb_idx[pos]) : led_off(led_dev, rgb_idx[pos]);
+        if (rc < 0) {
+            ok = false;
+            LOG_ERR("Failed to set LED %d on/off: %d", rgb_idx[pos], rc);
+        }
+#endif
     }
     if (duration_ms > 0) {
         k_sleep(K_MSEC(duration_ms));
     }
-    led_current_color = color;
+
+    if (ok) {
+        led_current_color = color;
+    }
 }
 
 // define message queue of blink work items, that will be processed by a
@@ -380,6 +382,16 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
 
 #if SHOW_LAYER_CHANGE
     k_work_init_delayable(&layer_indicate_work, indicate_layer_cb);
+#endif
+
+#if LED_SUPPORTS_BRIGHTNESS
+    if (!device_is_ready(led_dev)) {
+        LOG_WRN("RGBLED widget LED device not ready yet; waiting...");
+        while (!device_is_ready(led_dev)) {
+            k_sleep(K_MSEC(10));
+        }
+        LOG_INF("RGBLED widget LED device is now ready");
+    }
 #endif
 
     while (true) {
