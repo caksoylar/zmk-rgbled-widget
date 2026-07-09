@@ -219,7 +219,7 @@ Color settings use the following integer values:
 
 </details>
 
-You can add these settings to your keyboard conf file to modify the config values, e.g. in `config/hummingbird.conf`:
+You can add these settings to your conf file to modify the config values. You can use a `config/rgbled_adapter.conf` file in your ZMK config repo if you use the adapter shield as mentioned above, or `config/<keyboard>.conf`. E.g. in `config/rgbled_adapter.conf`:
 
 ```ini
 CONFIG_RGBLED_WIDGET_INTERVAL_MS=250
