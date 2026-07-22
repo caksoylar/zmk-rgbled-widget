@@ -34,7 +34,8 @@ enum status_type {
     STATUS_BATTERY = 0,
     STATUS_CONNECTIVITY = 1,
     STATUS_LAYER = 2,
-    STATUS_CUSTOM = 3
+    STATUS_CUSTOM = 3,
+    STATUS_CAPSLOCK = 4
 };
 
 // Animation type definitions

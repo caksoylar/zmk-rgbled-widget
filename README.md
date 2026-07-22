@@ -20,9 +20,10 @@ It is used to indicate battery level and BLE connection status in a minimalist w
 
 ### Connection status
 
-- Blink 🔵 for connected, 🟡 for open (advertising), 🔴 for disconnected profiles on boot after the battery blink, and following every BT profile switch (only on central side for splits)
-  - Enable `CONFIG_RGBLED_WIDGET_CONN_SHOW_USB` to blink cyan if USB currently has priority over BLE, instead of above
-- Blink 🔵 for connected, 🔴 for disconnected on peripheral side of splits
+- On central side: Each BT profile (0-4) has its own color. Connected shows static color for 3s then dims; advertising shows breathing pulse
+  - BT Profile 0: 🟢 Green, BT Profile 1: 🔴 Red, BT Profile 2: 🔵 Blue, BT Profile 3: 🟡 Yellow, BT Profile 4: 🟣 Magenta
+  - Enable `CONFIG_RGBLED_WIDGET_CONN_SHOW_USB` to show cyan if USB has priority over BLE
+- On peripheral side: Blink 🔵 for connected, 🔴 for disconnected
 
 ### Layer state
 
@@ -33,6 +34,13 @@ You can pick one of the following methods (off by default) to indicate the highe
 - Enable `CONFIG_RGBLED_WIDGET_SHOW_LAYER_COLORS` to assign each layer its own color, which will remain on while that layer is the highest active layer
 
 These layer indicators will only be active on the central part of a split keyboard, since peripheral parts aren't aware of the layer information.
+
+### Caps Lock indicator
+
+- When Caps Lock is activated, the designated LED (configurable via `CONFIG_RGBLED_WIDGET_CAPSLOCK_LED_INDEX`) will light up in cyan by default
+- When Caps Lock is deactivated, the LED returns to the current layer color, or triggers the battery indicator if USB is powered and battery level is below 99%
+- This feature is only available on the central part of split keyboards
+- Requires `CONFIG_ZMK_HID_INDICATORS` to be enabled (automatically selected when `CONFIG_RGBLED_WIDGET_SHOW_CAPSLOCK` is active)
 
 > [!TIP]
 > Also see [below](#showing-status-on-demand) for keymap behaviors you can use to show the battery and connection status on demand.
@@ -63,17 +71,26 @@ The following tables document all LED colors, patterns, and trigger conditions f
 | Low (<20%) | 🔴 Red | Blink | Boot, level change | 500ms on/off |
 | Critical (<5%) | 🔴 Red | Fast Blink | Continuous warning | 250ms on/off |
 | Missing/Disconnected | 🟣 Magenta | Blink | Peripheral disconnect | 1000ms on/off |
+| Charging (<99%) | 🟢 Green | Pulse | USB powered, not full | Breathing effect |
+| Charging (≥99%) | 🟢 Green | Static | USB powered, full | 3s then off |
 
 #### Connectivity Status State Changes
 
 | Connection State | LED Color | Pattern | Trigger Condition | Animation |
 |------------------|-----------|---------|-------------------|----------|
-| BLE Connected | 🔵 Blue | Static | Connection established | Solid color |
-| BLE Advertising | 🟡 Yellow | Pulse | Searching for device | Breathing effect |
-| BLE Disconnected | 🔴 Red | Blink | Connection lost | 1000ms on/off |
+| BLE Profile (connected) | Per-profile | Static | Connection established | 3s then dim |
+| BLE Advertising | 🟡 Yellow | Pulse | Profile open | Breathing effect |
+| BLE Disconnected | 🔴 Red | Blink | Connection lost | 500ms on/off |
 | USB Active | 🔵 Cyan | Static | USB priority enabled | Solid color |
 | Peripheral Connected | 🔵 Blue | Static | Split keyboard link | Solid color |
 | Peripheral Disconnected | 🔴 Red | Blink | Split link lost | 1000ms on/off |
+
+#### CapsLock Status State Changes
+
+| CapsLock State | LED Color | Pattern | Trigger Condition | Animation |
+|----------------|-----------|---------|-------------------|----------|
+| CapsLock ON | 🔵 Cyan | Static | CapsLock activated | Solid color |
+| CapsLock OFF | Layer color | Return | CapsLock deactivated | Returns to layer |
 
 #### Layer Status State Changes
 
@@ -182,7 +199,7 @@ CONFIG_RGBLED_WIDGET=y
 CONFIG_RGBLED_WIDGET_WS2812=y
 CONFIG_SPI=y
 CONFIG_LED_STRIP=y
-CONFIG_WS2812_STRIP=y
+
 ```
 
 ### WS2812 Configuration Examples
@@ -464,7 +481,7 @@ CONFIG_RGBLED_WIDGET=y
 CONFIG_RGBLED_WIDGET_WS2812=y
 CONFIG_SPI=y
 CONFIG_LED_STRIP=y
-CONFIG_WS2812_STRIP=y
+
 
 # Optional enhancements
 CONFIG_RGBLED_WIDGET_LED_COUNT=2
@@ -622,12 +639,12 @@ The migration is fully reversible:
 | `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH`     | High battery level percentage                                         | 80            |
 | `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_LOW`      | Low battery level percentage                                          | 20            |
 | `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL` | Critical battery level percentage, blink periodically if under        | 5             |
-| `CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_CRITICAL` | Critical battery level percentage, blink periodically if under        | 5             |
 | `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_HIGH`     | Color for high battery level (above `LEVEL_HIGH`)                     | Green (`2`)   |
 | `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MEDIUM`   | Color for medium battery level (between `LEVEL_LOW` and `LEVEL_HIGH`) | Yellow (`3`)  |
 | `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_LOW`      | Color for low battery level (below `LEVEL_LOW`)                       | Red (`1`)     |
 | `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_CRITICAL` | Color for critical battery level (below `LEVEL_CRITICAL`)             | Red (`1`)     |
 | `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_MISSING`  | Color for battery not detected, or peripheral disconnected            | Magenta (`5`) |
+| `CONFIG_RGBLED_WIDGET_BATTERY_COLOR_CHARGING`  | Color for battery charging state                                      | Green (`2`)   |
 
 Only one of the options below can be enabled.
 The non-default ones (second and third below) only work on central parts of splits.
@@ -651,6 +668,25 @@ The non-default ones (second and third below) only work on central parts of spli
 | `CONFIG_RGBLED_WIDGET_CONN_COLOR_ADVERTISING`  | Color for advertising BLE connection status                 | Yellow (`3`) |
 | `CONFIG_RGBLED_WIDGET_CONN_COLOR_DISCONNECTED` | Color for disconnected BLE connection status                | Red (`1`)    |
 | `CONFIG_RGBLED_WIDGET_CONN_COLOR_USB`          | Color for USB endpoint active                               | Cyan (`6`)   |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_BT0`          | Color index for BLE Profile 0                               | Green (`2`)  |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_BT1`           | Color index for BLE Profile 1                               | Red (`1`)    |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_BT2`          | Color index for BLE Profile 2                               | Blue (`4`)   |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_BT3`          | Color index for BLE Profile 3                               | Yellow (`3`) |
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_BT4`           | Color index for BLE Profile 4                               | Magenta (`5`)|
+| `CONFIG_RGBLED_WIDGET_CONN_COLOR_BT_FALLBACK`  | Color index for fallback BLE Profile                        | White (`7`)  |
+| `CONFIG_RGBLED_WIDGET_CONN_ADV_DURATION_MS`     | Duration for BLE advertising animation (ms)                  | 30000        |
+| `CONFIG_RGBLED_WIDGET_CONN_CONNECTED_DURATION_MS` | Duration for BLE connected static display (ms)             | 3000         |
+| `CONFIG_RGBLED_WIDGET_CONN_DISCONNECTED_DURATION_MS` | Duration for BLE disconnected animation (ms)              | 2500         |
+
+</details>
+
+<details>
+<summary>CapsLock indicator</summary>
+
+| Name                                      | Description                                    | Default    |
+| ----------------------------------------- | ---------------------------------------------- | ---------- |
+| `CONFIG_RGBLED_WIDGET_SHOW_CAPSLOCK`      | Enable Caps Lock LED indicator                 | `y`        |
+| `CONFIG_RGBLED_WIDGET_CAPSLOCK_LED_INDEX` | LED index for Caps Lock                        | 0          |
 
 </details>
 
@@ -802,7 +838,7 @@ CONFIG_RGBLED_WIDGET_WS2812=y
 # Required drivers
 CONFIG_SPI=y
 CONFIG_LED_STRIP=y
-CONFIG_WS2812_STRIP=y
+
 
 # Optional enhancements
 CONFIG_RGBLED_WIDGET_LED_COUNT=3
