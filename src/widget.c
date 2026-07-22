@@ -767,7 +767,7 @@ static void ext_power_off_handler(struct k_work *work) {
     if (ext_power_dev && ext_power_is_on) {
         ext_power_disable(ext_power_dev);
         ext_power_is_on = false;
-        LOG_INF("WS2812 idle timeout (30s), ext_power OFF");
+        LOG_INF("WS2812 idle timeout (%d ms), ext_power OFF", CONFIG_RGBLED_WIDGET_EXT_POWER_TIMEOUT_MS);
     }
 }
 
@@ -1492,8 +1492,8 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
         }
 #endif
 
-        // ===== 看门狗逻辑：无动画且黑屏时，倒数 30 秒断电 =====
-        if (ext_power_dev) {
+        // ===== 看门狗逻辑：无动画且黑屏时，倒数断电 =====
+        if (ext_power_dev && CONFIG_RGBLED_WIDGET_EXT_POWER_TIMEOUT_MS > 0) {
             if (has_lit_led || is_active) {
                 k_work_cancel_delayable(&ext_power_off_work);
             } else {
