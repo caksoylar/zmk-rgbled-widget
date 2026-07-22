@@ -39,6 +39,14 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
+// External power control for WS2812 strip (optional, depending on hardware setup)
+#include <drivers/ext_power.h>
+
+#ifndef CONFIG_RGBLED_WIDGET_EXT_POWER_TIMEOUT_MS
+#define CONFIG_RGBLED_WIDGET_EXT_POWER_TIMEOUT_MS 15000 
+#endif
+#define EXT_POWER_SETTLE_MS 10          // 10ms 物理通电预热时间，防止丢帧
+
 // Access CAPSLOCK status
 #ifndef ZMK_LED_CAPSLOCK_BIT
 #define ZMK_LED_CAPSLOCK_BIT BIT(1)
@@ -751,6 +759,31 @@ static int indicate_layer_enhanced(bool use_shared) {
 
 #endif // CONFIG_RGBLED_WIDGET_ANIMATIONS
 
+static const struct device *ext_power_dev = NULL;
+static struct k_work_delayable ext_power_off_work;
+static bool ext_power_is_on = true;
+
+static void ext_power_off_handler(struct k_work *work) {
+    if (ext_power_dev && ext_power_is_on) {
+        ext_power_disable(ext_power_dev);
+        ext_power_is_on = false;
+        LOG_INF("WS2812 idle timeout (30s), ext_power OFF");
+    }
+}
+
+// 【绝对门卫】：任何向灯带发数据的操作，必须先通过此函数
+static void ensure_ext_power_on(void) {
+    if (ext_power_dev) {
+        k_work_cancel_delayable(&ext_power_off_work); // 踢开看门狗
+        if (!ext_power_is_on) {
+            ext_power_enable(ext_power_dev);
+            ext_power_is_on = true;
+            k_msleep(EXT_POWER_SETTLE_MS); // 阻塞 10ms，等电容充满、芯片复位
+            LOG_INF("ext_power ON (waking up)");
+        }
+    }
+}
+
 // LED Strip Manager Functions
 static void ws2812_strip_init(void) {
     if (!device_is_ready(ws2812_dev)) {
@@ -819,6 +852,7 @@ static int ws2812_set_led(uint8_t led_index, uint8_t color_idx) {
     color_index_to_rgb(color_idx, &led_colors[led_index]);
     led_states[led_index].current_color = color_idx;
     
+    ensure_ext_power_on(); // <--- 关键拦截
     return led_strip_update_rgb(ws2812_dev, led_colors, CONFIG_RGBLED_WIDGET_LED_COUNT);
 }
 
@@ -834,11 +868,13 @@ int ws2812_clear_led(uint8_t led_index) {
     led_states[led_index].is_shared = false;
     led_states[led_index].is_persistent = false;
     led_states[led_index].share_end_time = 0;
-    
+    ensure_ext_power_on(); // <--- 关键拦截（发黑屏指令也需要通电）
+
     return led_strip_update_rgb(ws2812_dev, led_colors, CONFIG_RGBLED_WIDGET_LED_COUNT);
 }
 
 static int ws2812_update_strip(void) {
+    ensure_ext_power_on(); // <--- 关键拦截
     return led_strip_update_rgb(ws2812_dev, led_colors, CONFIG_RGBLED_WIDGET_LED_COUNT);
 }
 
@@ -1193,46 +1229,42 @@ static int led_battery_listener_cb(const zmk_event_t *eh) {
     if (!initialized) {
         return 0;
     }
-
+    bool is_usb_event = (as_zmk_usb_conn_state_changed(eh) != NULL);
+    struct zmk_battery_state_changed *bat_ev = as_zmk_battery_state_changed(eh);
+    bool is_charging = zmk_usb_is_powered();
     // ==================== 新增：EMA 低通滤波平滑监听 ====================
     #if IS_ENABLED(CONFIG_ZMK_SPLIT) && !IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-        static float smoothed_battery = -1.0f;       // 记录平滑后的内部真实值
-        static uint8_t last_notified_level = 0;      // 记录上一次允许亮灯的展示值
-        
-        struct zmk_battery_state_changed *bat_ev = as_zmk_battery_state_changed(eh);
+        static float smoothed_battery = -1.0f;       
+        static uint8_t last_notified_level = 0;      
         
         if (bat_ev != NULL) {
             uint8_t current_level = bat_ev->state_of_charge;
             
-            // 1. 初始化（第一次收到电量时，直接信任该值）
-            if (smoothed_battery < 0.0f) {
+            if (!is_charging) {
+                if (smoothed_battery < 0.0f) {
+                    smoothed_battery = (float)current_level;
+                    last_notified_level = current_level;
+                } else {
+                    smoothed_battery = (smoothed_battery * 0.9f) + ((float)current_level * 0.1f);
+                }
+                
+                uint8_t display_level = (uint8_t)(smoothed_battery + 0.5f);
+                
+                if (display_level == last_notified_level) {
+                    return 0; 
+                }
+                
+                last_notified_level = display_level;
+                bat_ev->state_of_charge = display_level; 
+            } else {
+                // 【充电状态】：允许数据随充电上涨，并同步内部 EMA 记忆
                 smoothed_battery = (float)current_level;
                 last_notified_level = current_level;
-            } else {
-                // 2. 核心：EMA 滤波计算
-                // 历史权重 90%，新值权重 10%。完美吸收发射瞬间拉低的“虚假掉电”
-                smoothed_battery = (smoothed_battery * 0.9f) + ((float)current_level * 0.1f);
             }
-            
-            // 3. 四舍五入，得出最终要用来显示的电量
-            uint8_t display_level = (uint8_t)(smoothed_battery + 0.5f);
-            
-            // 4. 拦截逻辑：只有当显示值“真的”发生了至少 1% 的平滑变化，或者电量极低时，才放行
-            if (display_level == last_notified_level) {
-                return 0; // 过滤掉底噪，继续装死
-            }
-            
-            // 更新记录，允许唤醒后续的灯光逻辑
-            last_notified_level = display_level;
         }
-        
     #endif
     // ===================================================================
 
-    // check the event source
-    bool is_usb_event = (as_zmk_usb_conn_state_changed(eh) != NULL);
-    struct zmk_battery_state_changed *bat_ev = as_zmk_battery_state_changed(eh);
-    bool is_charging = zmk_usb_is_powered();
 
     if (is_usb_event || is_charging) {
         indicate_battery();
@@ -1423,31 +1455,55 @@ ZMK_LISTENER(led_layer_listener, led_layer_listener_cb);
 ZMK_SUBSCRIPTION(led_layer_listener, zmk_layer_state_changed);
 #endif // SHOW_LAYER_CHANGE
 
+
 extern void led_process_thread(void *d0, void *d1, void *d2) {
     ARG_UNUSED(d0);
     ARG_UNUSED(d1);
     ARG_UNUSED(d2);
 
     k_work_init_delayable(&indicate_connectivity_work, indicate_connectivity_cb);
-
 #if SHOW_LAYER_CHANGE
     k_work_init_delayable(&layer_indicate_work, indicate_layer_cb);
 #endif
 
+    // 初始化硬件电源开关，并确保开机时通电
+    ext_power_dev = device_get_binding("EXT_POWER");
+    if (ext_power_dev) {
+        k_work_init_delayable(&ext_power_off_work, ext_power_off_handler);
+        ext_power_enable(ext_power_dev);
+        ext_power_is_on = true;
+    }
+
     while (true) {
         struct blink_item blink = {0, 0, 0};
-        // 判断当前是否有活动任务：有任何非静态动画，或者有灯是亮着的
-        bool is_active = false;
-        #if IS_ENABLED(CONFIG_RGBLED_WIDGET_WS2812)
-            for (int i = 0; i < CONFIG_RGBLED_WIDGET_LED_COUNT; i++) {
-                if (led_states[i].anim.type != ANIM_STATIC || led_states[i].current_color != 0) {
-                    is_active = true;
-                    break;
+        
+        bool is_active = false;      // 控制 CPU 是否需要 100ms 高刷
+        bool has_lit_led = false;    // 记录是否有灯亮着
+
+#if IS_ENABLED(CONFIG_RGBLED_WIDGET_WS2812)
+        for (int i = 0; i < CONFIG_RGBLED_WIDGET_LED_COUNT; i++) {
+            if (led_states[i].anim.type != ANIM_STATIC ||
+                led_states[i].share_end_time > 0) {
+                is_active = true;
+            }
+            if (led_states[i].current_color != 0) {
+                has_lit_led = true;
+            }
+        }
+#endif
+
+        // ===== 看门狗逻辑：无动画且黑屏时，倒数 30 秒断电 =====
+        if (ext_power_dev) {
+            if (has_lit_led || is_active) {
+                k_work_cancel_delayable(&ext_power_off_work);
+            } else {
+                if (ext_power_is_on && k_work_delayable_remaining_get(&ext_power_off_work) == 0) {
+                    k_work_reschedule(&ext_power_off_work, K_MSEC(CONFIG_RGBLED_WIDGET_EXT_POWER_TIMEOUT_MS));
                 }
             }
-        #endif
+        }
+        // =======================================================
 
-        // 动态心跳核心：忙时 100ms 保证帧率，闲时（黑屏）1000ms 保护电池
         k_timeout_t tick_rate = is_active ? K_MSEC(100) : K_MSEC(1000);
         int result_code = k_msgq_get(&led_msgq, &blink, tick_rate);
 
@@ -1463,7 +1519,7 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
                 blink.color, blink.duration_ms, blink.sleep_ms);
             if (blink.duration_ms > 0) {
                 LOG_DBG("Got a blink item from msgq, color %d, duration %d", blink.color, blink.duration_ms);
-
+            
                 // 1. 闪烁前的分离（制造断层感）
                 if (blink.color == led_current_color && blink.color > 0) {
                     set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);
@@ -1471,7 +1527,7 @@ extern void led_process_thread(void *d0, void *d1, void *d2) {
 
                 // 2. 点亮指定颜色，并保持 duration_ms 时长
                 set_rgb_leds(blink.color, blink.duration_ms);
-
+                
                 // 3. 【修复常亮】去除原来的宏限制，强制在闪烁结束后恢复底色
                 if (blink.color == led_layer_color && blink.color > 0) {
                     set_rgb_leds(0, CONFIG_RGBLED_WIDGET_INTERVAL_MS);

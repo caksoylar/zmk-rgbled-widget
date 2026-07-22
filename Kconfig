@@ -123,6 +123,14 @@ config RGBLED_WIDGET_INTERVAL_MS
     int "Minimum wait duration between two blinks in ms"
     default 500
 
+config RGBLED_WIDGET_EXT_POWER_TIMEOUT_MS
+    int "Idle timeout in milliseconds before turning off external power"
+    default 15000
+    help
+      Time in milliseconds the widget waits after all animations and static LEDs
+      are cleared before physically turning off the WS2812 power via ext_power.
+      Set to 15000 (15s) by default. Set to 0 to disable automatic power off.
+
 # Battery level settings
 
 choice RGBLED_WIDGET_BATTERY_SHOW
